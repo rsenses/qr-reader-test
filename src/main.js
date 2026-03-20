@@ -16,7 +16,17 @@ document.querySelector("#app").innerHTML = `
     <p id="status">Estado: esperando</p>
     <p id="result">Último resultado: ninguno</p>
 
-    <div id="reader"></div>
+    <div class="reader-shell">
+      <div id="reader"></div>
+
+      <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
+        <div class="scan-overlay-card">
+          <div id="scanOverlayIcon" class="scan-overlay-icon">✓</div>
+          <div id="scanOverlayTitle" class="scan-overlay-title">Verificado correctamente</div>
+          <div id="scanOverlaySubtitle" class="scan-overlay-subtitle">QR leído y validado</div>
+        </div>
+      </div>
+    </div>
   </div>
 `;
 
@@ -29,6 +39,11 @@ const torchBtn = document.getElementById("torchBtn");
 const zoomInBtn = document.getElementById("zoomInBtn");
 const zoomOutBtn = document.getElementById("zoomOutBtn");
 
+const overlayEl = document.getElementById("scanOverlay");
+const overlayIconEl = document.getElementById("scanOverlayIcon");
+const overlayTitleEl = document.getElementById("scanOverlayTitle");
+const overlaySubtitleEl = document.getElementById("scanOverlaySubtitle");
+
 const html5QrCode = new Html5Qrcode(readerId);
 
 let isRunning = false;
@@ -37,10 +52,10 @@ let torchOn = false;
 let currentZoom = null;
 let zoomCaps = null;
 
-// Para evitar aceptar una lectura espuria al primer frame
 let lastText = null;
 let lastTs = 0;
-let lockUntil = 0;
+let processingResult = false;
+let overlayTimer = null;
 
 function setStatus(text) {
   statusEl.textContent = `Estado: ${text}`;
@@ -54,17 +69,104 @@ function nowMs() {
   return performance.now();
 }
 
-function onScanSuccess(decodedText) {
-  const now = nowMs();
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  // Evita dobles lecturas inmediatamente después de una confirmación
-  if (now < lockUntil) return;
+function showOverlay(type, title, subtitle) {
+  overlayEl.classList.remove("hidden", "success", "error");
+  overlayEl.classList.add(type);
+
+  overlayIconEl.textContent = type === "success" ? "✓" : "✕";
+  overlayTitleEl.textContent = title;
+  overlaySubtitleEl.textContent = subtitle;
+}
+
+function hideOverlay() {
+  overlayEl.classList.add("hidden");
+  overlayEl.classList.remove("success", "error");
+}
+
+async function fakeValidateQr(decodedText) {
+  // Demo temporal:
+  // éxito si contiene "ok" o "valid"
+  // error en cualquier otro caso
+  await sleep(250);
+
+  const normalized = decodedText.trim().toLowerCase();
+  const isNotValid =
+    normalized.includes("error") || normalized.includes("invalid");
+
+  if (isNotValid) {
+    return {
+      ok: false,
+      title: "Error de verificación",
+      subtitle: "El QR no es válido para esta demo",
+    };
+  }
+  return {
+    ok: true,
+    title: "Verificado correctamente",
+    subtitle: "QR leído y validado",
+  };
+}
+
+async function handleScanResult(decodedText) {
+  if (processingResult) return;
+  processingResult = true;
+
+  try {
+    setResult(decodedText);
+    setStatus("verificando...");
+
+    const validation = await fakeValidateQr(decodedText);
+
+    if (validation.ok) {
+      showOverlay("success", validation.title, validation.subtitle);
+      setStatus("verificación correcta");
+    } else {
+      showOverlay("error", validation.title, validation.subtitle);
+      setStatus("verificación incorrecta");
+    }
+
+    if (overlayTimer) {
+      clearTimeout(overlayTimer);
+    }
+
+    overlayTimer = setTimeout(() => {
+      hideOverlay();
+      setStatus("escaneando");
+      processingResult = false;
+      lastText = null;
+      lastTs = 0;
+    }, 2000);
+  } catch (error) {
+    console.error(error);
+    showOverlay("error", "Error de verificación", "Ha fallado el proceso");
+    setStatus("error verificando");
+
+    if (overlayTimer) {
+      clearTimeout(overlayTimer);
+    }
+
+    overlayTimer = setTimeout(() => {
+      hideOverlay();
+      setStatus("escaneando");
+      processingResult = false;
+      lastText = null;
+      lastTs = 0;
+    }, 2000);
+  }
+}
+
+function onScanSuccess(decodedText) {
+  if (processingResult) return;
+
+  const now = nowMs();
 
   // Confirmar solo si el mismo QR aparece 2 veces seguidas en 500 ms
   if (decodedText === lastText && now - lastTs <= 500) {
-    setResult(decodedText);
-    setStatus("QR confirmado");
-    lockUntil = now + 1200;
+    handleScanResult(decodedText);
     return;
   }
 
@@ -74,7 +176,7 @@ function onScanSuccess(decodedText) {
 }
 
 function onScanFailure(_error) {
-  // No hagas console.log aquí frame a frame
+  // No hagas log frame a frame
 }
 
 async function setupTrackControls() {
@@ -135,7 +237,6 @@ async function startScanner() {
     throw new Error("No se han encontrado cámaras");
   }
 
-  // Preferir cámara trasera por nombre
   const backCamera =
     cameras.find((c) => /back|rear|environment/gi.test(c.label)) ||
     cameras[cameras.length - 1];
@@ -174,14 +275,24 @@ async function startScanner() {
 async function stopScanner() {
   if (!isRunning) return;
 
+  if (overlayTimer) {
+    clearTimeout(overlayTimer);
+    overlayTimer = null;
+  }
+
+  hideOverlay();
+
   await html5QrCode.stop();
-  html5QrCode.clear();
+  await html5QrCode.clear();
 
   isRunning = false;
   track = null;
   torchOn = false;
   currentZoom = null;
   zoomCaps = null;
+  processingResult = false;
+  lastText = null;
+  lastTs = 0;
 
   startBtn.disabled = false;
   stopBtn.disabled = true;

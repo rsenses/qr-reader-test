@@ -250,7 +250,6 @@ function renderLogin() {
       <article class="w-full rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
         <h2 class="mt-2 font-heading text-2xl text-slate-900">by metech</h2>
-        <p class="mt-1 text-sm text-slate-500">Solo email y contrasena.</p>
         ${state.loginError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.loginError)}</div>` : ""}
         <form id="loginForm" class="mt-6 space-y-4">
           <label class="block">
@@ -413,7 +412,7 @@ function renderProductSearch() {
 
         <div class="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
           <input id="manualSearchInput" value="${escapeAttribute(state.searchQuery)}" placeholder="Nombre, email, empresa, metadata..." class="min-w-0 flex-1 bg-transparent px-1 py-2 outline-none" />
-          ${state.searchQuery ? `<button type="button" data-action="clear-search" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Limpiar</button>` : ""}
+          <button type="button" data-action="clear-search" aria-label="Limpiar busqueda" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 ${state.searchQuery ? "" : "invisible"}">${renderIcon("close")}</button>
         </div>
 
         <div id="manualSearchResults" class="mt-4 space-y-3">
@@ -563,7 +562,8 @@ function renderSearchValidationCard() {
     return `
       <article class="rounded-[24px] border border-rose-200 bg-rose-50 p-4 shadow-sm">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">Error de validacion</p>
-        <p class="mt-2 text-sm font-medium text-rose-800">${escapeHtml(message)}</p>
+        ${attendee ? `<h3 class="mt-2 font-heading text-2xl text-slate-900">${escapeHtml(attendee.name)}</h3><div class="mt-3"><span class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ${registrationTypeBadgeClass(attendee.registrationType)}">${escapeHtml(attendee.registrationType)}</span></div><div class="mt-4 grid gap-2 text-sm text-slate-700">${attendee.metadata?.length ? attendee.metadata.map((item) => `<p><strong>${escapeHtml(item.key)}:</strong> ${escapeHtml(item.value)}</p>`).join("") : "<p>Sin metadatos</p>"}</div>` : ""}
+        <p class="mt-4 text-sm font-medium text-rose-800">${escapeHtml(message)}</p>
       </article>
     `;
   }
@@ -644,6 +644,12 @@ function syncSearchValidationUI() {
   }
 }
 
+function syncSearchClearButton() {
+  const button = document.querySelector('[data-action="clear-search"]');
+  if (!(button instanceof HTMLElement)) return;
+  button.classList.toggle("invisible", !state.searchQuery);
+}
+
 function showValidationOverlay() {
   if (!state.pendingOverlay) return;
 
@@ -688,7 +694,7 @@ function renderField(name, label, type = "text") {
 }
 
 function renderAppNav(route) {
-  if (!state.token) return "";
+  if (!state.token || route.name === "login") return "";
 
   const isProductArea =
     route.name === "product" ||
@@ -803,6 +809,8 @@ function renderIcon(name) {
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>',
     logout:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
+    close:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
   };
 
   return icons[name] || "";
@@ -899,6 +907,14 @@ async function handleClick(event) {
 
   if (action === "validate-attendee") {
     try {
+      const attemptedAttendee =
+        state.searchResults.find(
+          (entry) => entry.qrCode === actionEl.dataset.qrcode,
+        ) ||
+        state.product?.attendees?.find(
+          (entry) => entry.qrCode === actionEl.dataset.qrcode,
+        ) ||
+        null;
       const validation = await fakeValidateQr(actionEl.dataset.qrcode);
       await refreshCurrentProduct();
       if (getRoute().name === "productSearch") {
@@ -907,6 +923,16 @@ async function handleClick(event) {
           message: validation.title,
           attendee: validation.attendee,
         };
+        state.searchQuery = "";
+        state.searchResults = [];
+        const input = document.getElementById("manualSearchInput");
+        if (input instanceof HTMLInputElement) {
+          input.value = "";
+        }
+        const resultsEl = document.getElementById("manualSearchResults");
+        if (resultsEl) {
+          resultsEl.innerHTML = "";
+        }
         syncSearchValidationUI();
       } else {
         state.lastValidation = {
@@ -927,8 +953,15 @@ async function handleClick(event) {
         state.searchValidation = {
           ok: false,
           message: error.message,
-          attendee: null,
+          attendee: attemptedAttendee,
         };
+        state.searchResults = attemptedAttendee ? [attemptedAttendee] : [];
+        const resultsEl = document.getElementById("manualSearchResults");
+        if (resultsEl) {
+          resultsEl.innerHTML = attemptedAttendee
+            ? renderSearchResults(true)
+            : "";
+        }
         syncSearchValidationUI();
       } else {
         state.lastValidation = null;
@@ -946,6 +979,7 @@ async function handleClick(event) {
   if (action === "clear-search") {
     state.searchQuery = "";
     state.searchResults = [];
+    state.searchValidation = null;
     const input = document.getElementById("manualSearchInput");
     const resultsEl = document.getElementById("manualSearchResults");
     if (input instanceof HTMLInputElement) {
@@ -955,6 +989,8 @@ async function handleClick(event) {
     if (resultsEl) {
       resultsEl.innerHTML = renderSearchResults(false);
     }
+    syncSearchValidationUI();
+    syncSearchClearButton();
     render();
   }
 }
@@ -975,6 +1011,7 @@ function handleInput(event) {
 
   if (target.id === "manualSearchInput") {
     state.searchQuery = target.value;
+    state.searchValidation = null;
     const normalized = normalizeSearch(target.value);
     state.searchResults =
       normalized.length >= 2
@@ -984,6 +1021,9 @@ function handleInput(event) {
     if (resultsEl) {
       resultsEl.innerHTML = renderSearchResults(normalized.length >= 2);
     }
+
+    syncSearchValidationUI();
+    syncSearchClearButton();
   }
 }
 

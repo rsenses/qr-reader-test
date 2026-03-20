@@ -6,6 +6,7 @@ installFakeApi();
 
 const TOKEN_KEY = "qr-test-token";
 const USER_KEY = "qr-test-user";
+const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
 const app = document.querySelector("#app");
 
@@ -50,6 +51,22 @@ document.addEventListener("input", handleInput);
 
 bootstrap();
 registerServiceWorker();
+
+themeMedia.addEventListener("change", applyTheme);
+
+function applyTheme() {
+  const theme = themeMedia.matches ? "dark" : "light";
+  document.documentElement.dataset.theme = theme;
+  document.documentElement.style.colorScheme = theme;
+
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute(
+      "content",
+      theme === "dark" ? "#111827" : "#E44F3A",
+    );
+  }
+}
 
 function safeJsonParse(value) {
   try {
@@ -111,6 +128,8 @@ async function apiFetch(path, options = {}) {
 }
 
 async function bootstrap() {
+  applyTheme();
+
   if (!window.location.hash) {
     window.location.hash = state.token ? "#/campaigns" : "#/login";
     return;
@@ -212,9 +231,14 @@ function render() {
   const appNav = renderAppNav(route);
 
   app.innerHTML = `
-    <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] text-slate-900">
-      <div class="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-4 sm:max-w-2xl sm:px-6">
-        <main class="flex-1 pb-24">${page}</main>
+    <div class="app-shell min-h-screen text-slate-900">
+      <div class="app-shell__backdrop" aria-hidden="true">
+        <span class="app-shell__orb app-shell__orb--accent"></span>
+        <span class="app-shell__orb app-shell__orb--ink"></span>
+        <span class="app-shell__grid"></span>
+      </div>
+      <div class="app-shell__inner mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-4 sm:px-6">
+        <main class="app-main flex-1">${page}</main>
 
         ${appNav}
       </div>
@@ -247,9 +271,14 @@ function renderPage(route) {
 function renderLogin() {
   return `
     <section class="flex flex-1 items-center">
-      <article class="w-full rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
-        <h2 class="mt-2 font-heading text-2xl text-slate-900">by metech</h2>
+      <article class="app-card w-full rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div class="hero-badge">
+          <span class="hero-badge__icon">${renderIcon("shield")}</span>
+          <span>Check-in demo fiable y rapido</span>
+        </div>
+        <p class="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
+        <h2 class="login-title mt-2 font-heading text-3xl text-slate-900">Control de acceso claro, agil y moderno.</h2>
+        <p class="mt-3 max-w-sm text-sm text-slate-500">Una interfaz pensada para validar asistentes en segundos, con foco total en legibilidad y confianza.</p>
         ${state.loginError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.loginError)}</div>` : ""}
         <form id="loginForm" class="mt-6 space-y-4">
           <label class="block">
@@ -260,7 +289,7 @@ function renderLogin() {
             <span class="mb-2 block text-sm font-semibold text-slate-700">Password</span>
             <input id="login-password" type="password" name="password" autocomplete="current-password" required value="123456" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
           </label>
-          <button class="w-full rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white">Entrar</button>
+          <button class="w-full rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(228,79,58,0.28)]">Entrar</button>
         </form>
       </article>
     </section>
@@ -269,10 +298,10 @@ function renderLogin() {
 
 function renderRegister() {
   return `
-    <section class="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-      <div class="flex items-center justify-between gap-3">
+    <section class="app-card rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <div class="register-header flex items-center justify-between gap-3">
         <div>
-          <h2 class="font-heading text-2xl text-slate-900">Nuevo registro</h2>
+          <h2 class="section-title font-heading text-2xl text-slate-900">Nuevo registro</h2>
           <p class="mt-1 text-sm text-slate-500">Formulario simple, sin metadatos.</p>
         </div>
         ${state.product ? `<a href="#/products/${state.product.id}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Volver</a>` : `<a href="#/login" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Login</a>`}
@@ -299,7 +328,7 @@ function renderCampaigns() {
     <section>
       <div class="mb-4">
         <div>
-          <h2 class="font-heading text-2xl text-slate-900">Campañas activas</h2>
+          <h2 class="section-title font-heading text-2xl text-slate-900">Campañas activas</h2>
           <p class="mt-1 text-sm text-slate-500">Selecciona una campaña.</p>
         </div>
       </div>
@@ -330,8 +359,8 @@ function renderCampaignProducts() {
   return `
     <section>
       <a href="#/campaigns" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">← Campañas</a>
-      <div class="mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 class="font-heading text-2xl text-slate-900">${escapeHtml(state.campaign.name)}</h2>
+        <div class="app-card mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+         <h2 class="section-title font-heading text-2xl text-slate-900">${escapeHtml(state.campaign.name)}</h2>
         <div class="mt-4 grid gap-3">
           ${state.products
             .map(
@@ -361,9 +390,9 @@ function renderProductDetail() {
         <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Escanear</span>
       </div>
 
-      <article class="rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-sm sm:p-4">
+      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-sm sm:p-4">
           <div class="mb-3">
-            <h2 class="font-heading text-2xl text-slate-900">${escapeHtml(state.product.name)}</h2>
+            <h2 class="section-title font-heading text-2xl text-slate-900">${escapeHtml(state.product.name)}</h2>
             <p class="text-sm text-slate-500">${escapeHtml(state.productCampaign.name)}</p>
           </div>
 
@@ -374,8 +403,8 @@ function renderProductDetail() {
               <button id="zoomInBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">+</button>
             </div>
 
-            <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
-              <div id="reader" class="min-h-[420px] w-full bg-black"></div>
+             <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
+               <div id="reader" class="reader-frame min-h-[420px] w-full bg-black"></div>
               <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
                 <div class="scan-overlay-card">
                   <div id="scanOverlayIcon" class="scan-overlay-icon">✓</div>
@@ -406,12 +435,12 @@ function renderProductSearch() {
         <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Buscar</span>
       </div>
 
-      <article class="rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-        <h2 class="font-heading text-2xl text-slate-900">Buscar inscritos</h2>
+      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
+        <h2 class="section-title font-heading text-2xl text-slate-900">Buscar inscritos</h2>
         <p class="mt-1 text-sm text-slate-500">Escribe al menos 2 caracteres. La busqueda ignora acentos y eñes.</p>
 
         <div class="mt-4 flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
-          <input id="manualSearchInput" value="${escapeAttribute(state.searchQuery)}" placeholder="Nombre, email, empresa, metadata..." class="min-w-0 flex-1 bg-transparent px-1 py-2 outline-none" />
+          <input id="manualSearchInput" value="${escapeAttribute(state.searchQuery)}" placeholder="Nombre, email o empresa" class="min-w-0 flex-1 bg-transparent px-1 py-2 outline-none" />
           <button type="button" data-action="clear-search" aria-label="Limpiar busqueda" class="inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-200 hover:text-slate-700 ${state.searchQuery ? "" : "invisible"}">${renderIcon("close")}</button>
         </div>
 
@@ -440,18 +469,18 @@ function renderProductStats() {
         <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Estadísticas</span>
       </div>
 
-      <article class="rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-        <h2 class="font-heading text-2xl text-slate-900">Estadisticas</h2>
+      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
+        <h2 class="section-title font-heading text-2xl text-slate-900">Estadisticas</h2>
         <p class="mt-1 text-sm text-slate-500">${escapeHtml(state.product.name)}</p>
 
-        <div class="mt-4 grid grid-cols-2 gap-3">
+        <div class="stats-grid mt-4 grid grid-cols-2 gap-3">
           <div class="rounded-2xl bg-slate-100 p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Inscritos</p>
-            <p class="mt-2 text-3xl font-bold text-slate-900">${stats.totalPaidOrVerified}</p>
+            <p class="stats-number mt-2 text-3xl font-bold text-slate-900">${stats.totalPaidOrVerified}</p>
           </div>
           <div class="rounded-2xl bg-[color:var(--accent-faint)] p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-strong)]">Verificados</p>
-            <p class="mt-2 text-3xl font-bold text-[color:var(--accent-strong)]">${stats.totalVerified}</p>
+            <p class="stats-number mt-2 text-3xl font-bold text-[color:var(--accent-strong)]">${stats.totalVerified}</p>
           </div>
         </div>
 
@@ -713,10 +742,10 @@ function renderAppNav(route) {
 
   if (!isProductArea || !state.product) {
     return `
-      <nav class="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-4 sm:max-w-2xl sm:px-6" aria-label="Menu principal">
-        <div class="relative flex justify-end rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+      <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Menu principal">
+        <div class="app-bottom-nav relative flex justify-center rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
           ${menuPanel}
-          ${renderMenuButton()}
+          ${renderMenuButton("w-[5.75rem]")}
         </div>
       </nav>
     `;
@@ -752,8 +781,8 @@ function renderAppNav(route) {
   ];
 
   return `
-    <nav class="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-4 sm:max-w-2xl sm:px-6" aria-label="Navegacion del producto">
-      <div class="relative grid grid-cols-5 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+    <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Navegacion del producto">
+      <div class="app-bottom-nav relative grid grid-cols-5 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
         ${menuPanel}
         ${items
           .map((item) => {
@@ -774,10 +803,10 @@ function renderAppNav(route) {
   `;
 }
 
-function renderMenuButton() {
+function renderMenuButton(widthClass = "w-full") {
   return `
     <div data-menu-root class="relative flex items-center justify-center">
-      <button id="menuToggleButton" type="button" data-action="toggle-menu" aria-label="Menu" class="app-nav-item w-full ${state.menuOpen ? "app-nav-item-active" : ""}">
+      <button id="menuToggleButton" type="button" data-action="toggle-menu" aria-label="Menu" class="app-nav-item ${widthClass} ${state.menuOpen ? "app-nav-item-active" : ""}">
         <span class="app-nav-icon">${renderIcon("menu")}</span>
         <span class="app-nav-label">Menu</span>
       </button>
@@ -811,6 +840,8 @@ function renderIcon(name) {
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
     close:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
+    shield:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 5 6v6c0 4.4 2.9 8.4 7 9 4.1-.6 7-4.6 7-9V6l-7-3Z"/><path d="m9.5 12 1.7 1.7 3.3-3.7"/></svg>',
   };
 
   return icons[name] || "";

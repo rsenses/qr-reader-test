@@ -17,11 +17,16 @@ const state = {
   campaign: null,
   product: null,
   productCampaign: null,
-  message: null,
-  error: null,
   loading: false,
   searchQuery: "",
   searchResults: [],
+  menuOpen: false,
+  lastValidation: null,
+  pendingOverlay: null,
+  searchValidation: null,
+  loginError: null,
+  registerMessage: null,
+  registerError: null,
 };
 
 const scannerState = {
@@ -70,22 +75,10 @@ function nowMs() {
   return performance.now();
 }
 
-function setMessage(message) {
-  state.message = message;
-  state.error = null;
-  updateFeedbackRegion();
-}
-
-function setError(message) {
-  state.error = message;
-  state.message = null;
-  updateFeedbackRegion();
-}
-
-function clearFeedback() {
-  state.message = null;
-  state.error = null;
-  updateFeedbackRegion();
+function clearScreenMessages() {
+  state.loginError = null;
+  state.registerMessage = null;
+  state.registerError = null;
 }
 
 function metadataText(metadata = []) {
@@ -138,36 +131,52 @@ async function handleRouteChange() {
     await destroyScanner();
   }
 
-  clearFeedback();
+  clearScreenMessages();
   state.loading = true;
   render();
 
   try {
-  if (route.name === "campaigns") {
+    if (route.name === "campaigns") {
       const response = await apiFetch("/api/v1/campaigns");
       state.campaigns = response.campaigns;
     }
 
     if (route.name === "campaignProducts") {
-      const response = await apiFetch(`/api/v1/campaigns/${route.campaignId}/products`);
+      const response = await apiFetch(
+        `/api/v1/campaigns/${route.campaignId}/products`,
+      );
       state.campaign = response.campaign;
       state.products = response.products;
     }
 
-    if (route.name === "product" || route.name === "productSearch" || route.name === "productStats") {
+    if (
+      route.name === "product" ||
+      route.name === "productSearch" ||
+      route.name === "productStats"
+    ) {
       const response = await apiFetch(`/api/v1/products/${route.productId}`);
       state.productCampaign = response.campaign;
       state.product = response.product;
       state.searchResults = [];
       state.searchQuery = "";
+      if (route.name !== "productSearch") {
+        state.searchValidation = null;
+      }
     }
   } catch (error) {
-    state.error = error.message;
+    if (route.name === "login") {
+      state.loginError = error.message;
+    }
+
+    if (route.name === "register") {
+      state.registerError = error.message;
+    }
   } finally {
     state.loading = false;
     render();
     if (route.name === "product" && state.product?.id === route.productId) {
       await setupScanner({ autoStart: true });
+      showValidationOverlay();
     }
   }
 }
@@ -180,16 +189,19 @@ function getRoute() {
   if (hash === "/campaigns") return { name: "campaigns" };
 
   const campaignMatch = hash.match(/^\/campaigns\/([^/]+)$/);
-  if (campaignMatch) return { name: "campaignProducts", campaignId: campaignMatch[1] };
+  if (campaignMatch)
+    return { name: "campaignProducts", campaignId: campaignMatch[1] };
 
   const productMatch = hash.match(/^\/products\/([^/]+)$/);
   if (productMatch) return { name: "product", productId: productMatch[1] };
 
   const productSearchMatch = hash.match(/^\/products\/([^/]+)\/search$/);
-  if (productSearchMatch) return { name: "productSearch", productId: productSearchMatch[1] };
+  if (productSearchMatch)
+    return { name: "productSearch", productId: productSearchMatch[1] };
 
   const productStatsMatch = hash.match(/^\/products\/([^/]+)\/stats$/);
-  if (productStatsMatch) return { name: "productStats", productId: productStatsMatch[1] };
+  if (productStatsMatch)
+    return { name: "productStats", productId: productStatsMatch[1] };
 
   return { name: state.token ? "campaigns" : "login" };
 }
@@ -202,16 +214,6 @@ function render() {
   app.innerHTML = `
     <div class="min-h-screen bg-[linear-gradient(180deg,#f8fafc_0%,#eef2f7_100%)] text-slate-900">
       <div class="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 py-4 sm:max-w-2xl sm:px-6">
-        <header class="mb-4 flex items-center justify-between gap-3 rounded-[24px] border border-white/70 bg-white/85 px-4 py-3 shadow-sm backdrop-blur">
-          <div>
-            <h1 class="font-heading text-lg text-slate-900">QR Access</h1>
-            <p class="text-xs text-slate-500">${renderHeaderSubtitle(route)}</p>
-          </div>
-          ${state.token ? `<button type="button" data-action="logout" class="rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700">Salir</button>` : ""}
-        </header>
-
-        ${renderFeedback()}
-
         <main class="flex-1 pb-24">${page}</main>
 
         ${appNav}
@@ -219,46 +221,6 @@ function render() {
     </div>
   `;
 }
-
-function renderHeaderSubtitle(route) {
-  if (route.name === "login") return "Acceso";
-  if (route.name === "campaigns") return "Campañas";
-  if (route.name === "campaignProducts") return state.campaign?.name || "Productos";
-  if (route.name === "product" || route.name === "productSearch" || route.name === "productStats") {
-    return state.product?.name || "Producto";
-  }
-  if (route.name === "register") return "Registro";
-  return state.user?.email || "App";
-}
-
-function renderFeedback() {
-  const isError = Boolean(state.error);
-  const text = escapeHtml(state.error || state.message || "");
-
-  return `
-    <div id="feedbackRegion" class="${state.message || state.error ? "mb-6" : "hidden"} rounded-2xl border px-4 py-3 text-sm font-medium ${isError ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}">
-      ${text}
-    </div>
-  `;
-}
-
-function updateFeedbackRegion() {
-  const feedbackEl = document.getElementById("feedbackRegion");
-  if (!feedbackEl) return;
-
-  const isError = Boolean(state.error);
-  const text = state.error || state.message;
-
-  if (!text) {
-    feedbackEl.className = "hidden rounded-2xl border px-4 py-3 text-sm font-medium";
-    feedbackEl.textContent = "";
-    return;
-  }
-
-  feedbackEl.className = `mb-6 rounded-2xl border px-4 py-3 text-sm font-medium ${isError ? "border-rose-200 bg-rose-50 text-rose-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`;
-  feedbackEl.textContent = text;
-}
-
 function renderPage(route) {
   if (state.loading) {
     return `
@@ -286,8 +248,10 @@ function renderLogin() {
   return `
     <section class="flex flex-1 items-center">
       <article class="w-full rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 class="font-heading text-2xl text-slate-900">Acceder</h2>
+        <p class="text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
+        <h2 class="mt-2 font-heading text-2xl text-slate-900">by metech</h2>
         <p class="mt-1 text-sm text-slate-500">Solo email y contrasena.</p>
+        ${state.loginError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.loginError)}</div>` : ""}
         <form id="loginForm" class="mt-6 space-y-4">
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700">Email</span>
@@ -297,7 +261,7 @@ function renderLogin() {
             <span class="mb-2 block text-sm font-semibold text-slate-700">Password</span>
             <input id="login-password" type="password" name="password" autocomplete="current-password" required value="123456" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
           </label>
-          <button class="w-full rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">Entrar</button>
+          <button class="w-full rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white">Entrar</button>
         </form>
       </article>
     </section>
@@ -315,6 +279,9 @@ function renderRegister() {
         ${state.product ? `<a href="#/products/${state.product.id}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Volver</a>` : `<a href="#/login" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Login</a>`}
       </div>
 
+      ${state.registerError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.registerError)}</div>` : ""}
+      ${state.registerMessage ? `<div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">${escapeHtml(state.registerMessage)}</div>` : ""}
+
       <form id="registerForm" class="mt-6 grid gap-4">
         ${renderField("name", "Nombre completo")}
         ${renderField("email", "Email", "email")}
@@ -322,7 +289,7 @@ function renderRegister() {
         ${renderField("company", "Empresa")}
         ${renderField("position", "Cargo")}
         ${renderField("registrationType", "Tipo de inscripcion")}
-        <button class="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">Registrar</button>
+        <button class="rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white">Registrar</button>
       </form>
     </section>
   `;
@@ -338,7 +305,9 @@ function renderCampaigns() {
         </div>
       </div>
       <div class="grid gap-4 sm:grid-cols-2">
-        ${state.campaigns.map((campaign) => `
+        ${state.campaigns
+          .map(
+            (campaign) => `
           <a href="#/campaigns/${campaign.id}" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
             <img src="${campaign.image}" alt="${escapeHtml(campaign.name)}" class="h-36 w-full object-cover" />
             <div class="p-4">
@@ -346,7 +315,9 @@ function renderCampaigns() {
               <p class="mt-1 text-sm text-slate-500">${campaign.productCount} productos</p>
             </div>
           </a>
-        `).join("")}
+        `,
+          )
+          .join("")}
       </div>
     </section>
   `;
@@ -363,12 +334,16 @@ function renderCampaignProducts() {
       <div class="mt-4 rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 class="font-heading text-2xl text-slate-900">${escapeHtml(state.campaign.name)}</h2>
         <div class="mt-4 grid gap-3">
-          ${state.products.map((product) => `
+          ${state.products
+            .map(
+              (product) => `
             <a href="#/products/${product.id}" class="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
               <h3 class="font-heading text-xl text-slate-900">${escapeHtml(product.name)}</h3>
               <p class="mt-1 text-sm text-slate-500">${product.attendeeCount} inscritos</p>
             </a>
-          `).join("")}
+          `,
+            )
+            .join("")}
         </div>
       </div>
     </section>
@@ -395,7 +370,7 @@ function renderProductDetail() {
 
           <div class="space-y-3">
             <div class="controls flex flex-wrap gap-3 px-1">
-              <button id="torchBtn" type="button" hidden class="rounded-2xl bg-amber-400 px-4 py-3 text-sm font-semibold text-amber-950">Linterna</button>
+               <button id="torchBtn" type="button" hidden class="rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white">Linterna</button>
               <button id="zoomOutBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">-</button>
               <button id="zoomInBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">+</button>
             </div>
@@ -410,6 +385,8 @@ function renderProductDetail() {
                 </div>
               </div>
             </div>
+
+            <div id="lastValidationRegion">${renderLastValidationCard()}</div>
           </div>
       </article>
     </section>
@@ -442,6 +419,9 @@ function renderProductSearch() {
         <div id="manualSearchResults" class="mt-4 space-y-3">
           ${renderSearchResults(hasEnoughChars)}
         </div>
+
+        <div id="searchValidationRegion" class="mt-4">${renderSearchValidationCard()}</div>
+
       </article>
     </section>
   `;
@@ -470,14 +450,18 @@ function renderProductStats() {
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Inscritos</p>
             <p class="mt-2 text-3xl font-bold text-slate-900">${stats.totalPaidOrVerified}</p>
           </div>
-          <div class="rounded-2xl bg-emerald-50 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Verificados</p>
-            <p class="mt-2 text-3xl font-bold text-emerald-800">${stats.totalVerified}</p>
+          <div class="rounded-2xl bg-[color:var(--accent-faint)] p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--accent-strong)]">Verificados</p>
+            <p class="mt-2 text-3xl font-bold text-[color:var(--accent-strong)]">${stats.totalVerified}</p>
           </div>
         </div>
 
         <div class="mt-4 space-y-3">
-          ${stats.byType.length ? stats.byType.map((entry) => `
+          ${
+            stats.byType.length
+              ? stats.byType
+                  .map(
+                    (entry) => `
             <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <div class="flex items-center justify-between gap-3">
                 <div>
@@ -490,7 +474,11 @@ function renderProductStats() {
                 <div class="h-full rounded-full bg-slate-900" style="width: ${entry.percentage}%"></div>
               </div>
             </article>
-          `).join("") : `<p class="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">No hay inscritos paid o verified para mostrar.</p>`}
+          `,
+                  )
+                  .join("")
+              : `<p class="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">No hay inscritos paid o verified para mostrar.</p>`
+          }
         </div>
       </article>
     </section>
@@ -510,14 +498,16 @@ function renderSearchResults(hasEnoughChars) {
     return `<p class="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-500">No hay resultados.</p>`;
   }
 
-  return state.searchResults.map((attendee) => `
+  return state.searchResults
+    .map(
+      (attendee) => `
     <article class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="font-semibold text-slate-900">${escapeHtml(attendee.name)}</h3>
           <p class="mt-1 text-sm text-slate-600">${escapeHtml(attendee.email)}</p>
         </div>
-        <span class="rounded-full px-3 py-1 text-xs font-semibold ${attendee.status === "paid" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}">${escapeHtml(attendee.status)}</span>
+        <span class="rounded-full px-3 py-1 text-xs font-semibold ${attendee.status === "paid" ? "bg-slate-200 text-slate-700" : "bg-[color:var(--accent-faint)] text-[color:var(--accent-strong)]"}">${escapeHtml(attendee.status)}</span>
       </div>
       <p class="mt-3 text-sm text-slate-600">${escapeHtml(attendee.phone)}</p>
       <p class="mt-1 text-sm text-slate-600">${escapeHtml(attendee.company)} · ${escapeHtml(attendee.position)}</p>
@@ -525,7 +515,150 @@ function renderSearchResults(hasEnoughChars) {
       <p class="mt-2 text-xs text-slate-500">${escapeHtml(metadataText(attendee.metadata))}</p>
       <button type="button" data-action="validate-attendee" data-qrcode="${escapeAttribute(attendee.qrCode)}" class="mt-4 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white">Validar inscrito</button>
     </article>
-  `).join("");
+  `,
+    )
+    .join("");
+}
+
+function renderLastValidationCard() {
+  if (!state.lastValidation?.attendee) return "";
+
+  const { attendee, ok, message } = state.lastValidation;
+  const metadataLines = attendee.metadata?.length
+    ? attendee.metadata
+        .map(
+          (item) =>
+            `<p><strong>${escapeHtml(item.key)}:</strong> ${escapeHtml(item.value)}</p>`,
+        )
+        .join("")
+    : "<p>Sin metadatos</p>";
+
+  return `
+    <article class="rounded-[24px] border ${ok ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"} p-4 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] ${ok ? "text-emerald-700" : "text-slate-500"}">${ok ? "Validado" : "Ultimo intento"}</p>
+          <h3 class="mt-2 font-heading text-2xl text-slate-900">${escapeHtml(attendee.name)}</h3>
+        </div>
+        <span class="rounded-full px-3 py-1 text-xs font-semibold ${ok ? "bg-white text-emerald-700" : "bg-white text-slate-700"}">${escapeHtml(message || (ok ? "OK" : "Error"))}</span>
+      </div>
+
+      <div class="mt-3">
+        <span class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ${registrationTypeBadgeClass(attendee.registrationType)}">${escapeHtml(attendee.registrationType)}</span>
+      </div>
+
+      <div class="mt-4 grid gap-2 text-sm text-slate-700">
+        ${metadataLines}
+      </div>
+    </article>
+  `;
+}
+
+function renderSearchValidationCard() {
+  if (!state.searchValidation) return "";
+
+  const { ok, message, attendee } = state.searchValidation;
+
+  if (!ok) {
+    return `
+      <article class="rounded-[24px] border border-rose-200 bg-rose-50 p-4 shadow-sm">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">Error de validacion</p>
+        <p class="mt-2 text-sm font-medium text-rose-800">${escapeHtml(message)}</p>
+      </article>
+    `;
+  }
+
+  if (!attendee) return "";
+
+  const metadataLines = attendee.metadata?.length
+    ? attendee.metadata
+        .map(
+          (item) =>
+            `<p><strong>${escapeHtml(item.key)}:</strong> ${escapeHtml(item.value)}</p>`,
+        )
+        .join("")
+    : "<p>Sin metadatos</p>";
+
+  return `
+    <article class="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">Validado</p>
+          <h3 class="mt-2 font-heading text-2xl text-slate-900">${escapeHtml(attendee.name)}</h3>
+        </div>
+        <span class="rounded-full bg-white px-3 py-1 text-xs font-semibold text-emerald-700">${escapeHtml(message || "OK")}</span>
+      </div>
+
+      <div class="mt-3">
+        <span class="inline-flex rounded-full px-3 py-1.5 text-sm font-semibold ${registrationTypeBadgeClass(attendee.registrationType)}">${escapeHtml(attendee.registrationType)}</span>
+      </div>
+
+      <div class="mt-4 grid gap-2 text-sm text-slate-700">
+        ${metadataLines}
+      </div>
+    </article>
+  `;
+}
+
+function registrationTypeBadgeClass(type) {
+  const normalized = normalizeSearch(type);
+
+  if (normalized === "ponente") {
+    return "bg-sky-100 text-sky-800";
+  }
+
+  if (normalized === "vip") {
+    return "bg-amber-100 text-amber-900";
+  }
+
+  if (normalized === "invitado") {
+    return "bg-violet-100 text-violet-800";
+  }
+
+  if (normalized === "asistente") {
+    return "bg-emerald-100 text-emerald-800";
+  }
+
+  return "bg-slate-200 text-slate-700";
+}
+
+function syncLastValidationUI() {
+  const region = document.getElementById("lastValidationRegion");
+  if (!region) return;
+  region.innerHTML = renderLastValidationCard();
+
+  const card = region.firstElementChild;
+  if (card instanceof HTMLElement) {
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+function syncSearchValidationUI() {
+  const region = document.getElementById("searchValidationRegion");
+  if (!region) return;
+  region.innerHTML = renderSearchValidationCard();
+
+  const card = region.firstElementChild;
+  if (card instanceof HTMLElement) {
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+}
+
+function showValidationOverlay() {
+  if (!state.pendingOverlay) return;
+
+  const { type, title, subtitle } = state.pendingOverlay;
+  showOverlay(type, title, subtitle);
+
+  if (scannerState.overlayTimer) {
+    clearTimeout(scannerState.overlayTimer);
+  }
+
+  scannerState.overlayTimer = setTimeout(() => {
+    hideOverlay();
+    state.pendingOverlay = null;
+    setStatus("escaneando");
+  }, 2000);
 }
 
 function renderAttendeeRow(attendee) {
@@ -555,7 +688,33 @@ function renderField(name, label, type = "text") {
 }
 
 function renderAppNav(route) {
-  if (!state.token || !state.product) return "";
+  if (!state.token) return "";
+
+  const isProductArea =
+    route.name === "product" ||
+    route.name === "productSearch" ||
+    route.name === "productStats" ||
+    route.name === "register";
+  const menuPanel = `
+      <div id="menuPanel" data-menu-root class="${state.menuOpen ? "" : "hidden "}pointer-events-auto absolute bottom-[calc(100%+0.75rem)] right-0 z-40 w-56 rounded-[24px] border border-white/80 bg-white p-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
+        <p class="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Sesion</p>
+        <button type="button" data-action="request-logout" class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-[color:var(--accent-strong)] transition hover:bg-[color:var(--accent-faint)]">
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--accent-faint)] text-[color:var(--accent-strong)]">${renderIcon("logout")}</span>
+          <span>Salir</span>
+        </button>
+      </div>
+    `;
+
+  if (!isProductArea || !state.product) {
+    return `
+      <nav class="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-4 sm:max-w-2xl sm:px-6" aria-label="Menu principal">
+        <div class="relative flex justify-end rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+          ${menuPanel}
+          ${renderMenuButton()}
+        </div>
+      </nav>
+    `;
+  }
 
   const items = [
     {
@@ -588,27 +747,62 @@ function renderAppNav(route) {
 
   return `
     <nav class="fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-md px-4 pb-4 sm:max-w-2xl sm:px-6" aria-label="Navegacion del producto">
-      <div class="grid grid-cols-4 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
-        ${items.map((item) => {
-          const isActive = route.name === item.key || (item.key === "product" && route.name === "product");
-          return `
+      <div class="relative grid grid-cols-5 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+        ${menuPanel}
+        ${items
+          .map((item) => {
+            const isActive =
+              route.name === item.key ||
+              (item.key === "product" && route.name === "product");
+            return `
             <a href="${item.href}" aria-label="${item.label}" class="app-nav-item ${item.primary ? "app-nav-item-primary" : ""} ${isActive ? "app-nav-item-active" : ""}">
               <span class="app-nav-icon">${item.icon}</span>
               <span class="app-nav-label">${item.label}</span>
             </a>
           `;
-        }).join("")}
+          })
+          .join("")}
+        ${renderMenuButton()}
       </div>
     </nav>
   `;
 }
 
+function renderMenuButton() {
+  return `
+    <div data-menu-root class="relative flex items-center justify-center">
+      <button id="menuToggleButton" type="button" data-action="toggle-menu" aria-label="Menu" class="app-nav-item w-full ${state.menuOpen ? "app-nav-item-active" : ""}">
+        <span class="app-nav-icon">${renderIcon("menu")}</span>
+        <span class="app-nav-label">Menu</span>
+      </button>
+    </div>
+  `;
+}
+
+function syncMenuUI() {
+  const menuPanel = document.getElementById("menuPanel");
+  const toggleButton = document.getElementById("menuToggleButton");
+
+  if (menuPanel) {
+    menuPanel.classList.toggle("hidden", !state.menuOpen);
+  }
+
+  if (toggleButton) {
+    toggleButton.classList.toggle("app-nav-item-active", state.menuOpen);
+  }
+}
+
 function renderIcon(name) {
   const icons = {
     scan: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2"/><path d="M20 8V6a2 2 0 0 0-2-2h-2"/><path d="M4 16v2a2 2 0 0 0 2 2h2"/><path d="M20 16v2a2 2 0 0 1-2 2h-2"/><path d="M7 12h10"/></svg>',
-    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/></svg>',
-    stats: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-7"/></svg>',
+    search:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-3.5-3.5"/></svg>',
+    stats:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-7"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
+    menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>',
+    logout:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
   };
 
   return icons[name] || "";
@@ -633,14 +827,15 @@ async function handleSubmit(event) {
         body: JSON.stringify(formData),
       });
 
+      state.loginError = null;
       state.token = response.token;
       state.user = response.user;
       localStorage.setItem(TOKEN_KEY, response.token);
       localStorage.setItem(USER_KEY, JSON.stringify(response.user));
-      state.message = `Bienvenido ${response.user.name}. Token recibido y guardado.`;
       window.location.hash = "#/campaigns";
     } catch (error) {
-      setError(error.message);
+      state.loginError = error.message;
+      render();
     }
   }
 
@@ -654,39 +849,96 @@ async function handleSubmit(event) {
         headers: {},
         body: JSON.stringify(formData),
       });
-      state.message = `${response.message}: ${response.user.name}`;
+      state.registerError = null;
+      state.registerMessage = `${response.message}: ${response.user.name}`;
       render();
       form.reset();
     } catch (error) {
-      setError(error.message);
+      state.registerMessage = null;
+      state.registerError = error.message;
+      render();
     }
   }
 }
 
 async function handleClick(event) {
   const target = event.target;
-  if (!(target instanceof HTMLElement)) return;
+  if (!(target instanceof Element)) return;
 
-  const action = target.dataset.action;
+  if (state.menuOpen && !target.closest("[data-menu-root]")) {
+    state.menuOpen = false;
+    syncMenuUI();
+    return;
+  }
+
+  const actionEl = target.closest("[data-action]");
+  if (!(actionEl instanceof HTMLElement)) return;
+
+  const action = actionEl.dataset.action;
   if (!action) return;
 
   if (action === "logout") {
-    await destroyScanner();
-    state.token = null;
-    state.user = null;
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    window.location.hash = "#/login";
+    await logout();
+    return;
+  }
+
+  if (action === "toggle-menu") {
+    state.menuOpen = !state.menuOpen;
+    syncMenuUI();
+    return;
+  }
+
+  if (action === "request-logout") {
+    state.menuOpen = false;
+    syncMenuUI();
+    if (window.confirm("¿Seguro que quieres salir?")) {
+      await logout();
+    }
     return;
   }
 
   if (action === "validate-attendee") {
     try {
-      const validation = await fakeValidateQr(target.dataset.qrcode);
-      setMessage(validation.subtitle);
+      const validation = await fakeValidateQr(actionEl.dataset.qrcode);
       await refreshCurrentProduct();
+      if (getRoute().name === "productSearch") {
+        state.searchValidation = {
+          ok: true,
+          message: validation.title,
+          attendee: validation.attendee,
+        };
+        syncSearchValidationUI();
+      } else {
+        state.lastValidation = {
+          ok: true,
+          message: validation.title,
+          attendee: validation.attendee,
+        };
+        state.pendingOverlay = {
+          type: "success",
+          title: validation.title,
+          subtitle: validation.subtitle,
+        };
+        syncLastValidationUI();
+        showValidationOverlay();
+      }
     } catch (error) {
-      setError(error.message);
+      if (getRoute().name === "productSearch") {
+        state.searchValidation = {
+          ok: false,
+          message: error.message,
+          attendee: null,
+        };
+        syncSearchValidationUI();
+      } else {
+        state.lastValidation = null;
+        state.pendingOverlay = {
+          type: "error",
+          title: "Error de verificacion",
+          subtitle: error.message,
+        };
+        showValidationOverlay();
+      }
     }
     return;
   }
@@ -707,6 +959,16 @@ async function handleClick(event) {
   }
 }
 
+async function logout() {
+  await destroyScanner();
+  state.token = null;
+  state.user = null;
+  state.menuOpen = false;
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+  window.location.hash = "#/login";
+}
+
 function handleInput(event) {
   const target = event.target;
   if (!(target instanceof HTMLInputElement)) return;
@@ -714,7 +976,10 @@ function handleInput(event) {
   if (target.id === "manualSearchInput") {
     state.searchQuery = target.value;
     const normalized = normalizeSearch(target.value);
-    state.searchResults = normalized.length >= 2 ? filterAttendees(state.product?.attendees || [], target.value) : [];
+    state.searchResults =
+      normalized.length >= 2
+        ? filterAttendees(state.product?.attendees || [], target.value)
+        : [];
     const resultsEl = document.getElementById("manualSearchResults");
     if (resultsEl) {
       resultsEl.innerHTML = renderSearchResults(normalized.length >= 2);
@@ -727,16 +992,18 @@ function filterAttendees(attendees, query) {
   if (!normalized) return attendees;
 
   return attendees.filter((attendee) => {
-    const haystack = normalizeSearch([
-      attendee.name,
-      attendee.email,
-      attendee.phone,
-      attendee.company,
-      attendee.position,
-      attendee.registrationType,
-      attendee.qrCode,
-      ...attendee.metadata.flatMap((item) => [item.key, item.value]),
-    ].join(" "));
+    const haystack = normalizeSearch(
+      [
+        attendee.name,
+        attendee.email,
+        attendee.phone,
+        attendee.company,
+        attendee.position,
+        attendee.registrationType,
+        attendee.qrCode,
+        ...attendee.metadata.flatMap((item) => [item.key, item.value]),
+      ].join(" "),
+    );
 
     return haystack.includes(normalized);
   });
@@ -752,15 +1019,19 @@ function normalizeSearch(value) {
 }
 
 async function fakeValidateQr(decodedText) {
-  const response = await apiFetch(`/api/v1/validate/${encodeURIComponent(decodedText)}`, {
-    method: "POST",
-  });
+  const response = await apiFetch(
+    `/api/v1/validate/${encodeURIComponent(decodedText)}`,
+    {
+      method: "POST",
+    },
+  );
 
   const attendee = response.attendee;
   return {
     ok: true,
     title: response.title,
     subtitle: `${attendee.name} · ${attendee.registrationType} · ${metadataText(attendee.metadata)}`,
+    attendee,
   };
 }
 
@@ -773,7 +1044,10 @@ async function refreshCurrentProduct() {
 
   if (getRoute().name === "productSearch") {
     const normalized = normalizeSearch(state.searchQuery);
-    state.searchResults = normalized.length >= 2 ? filterAttendees(state.product.attendees, state.searchQuery) : [];
+    state.searchResults =
+      normalized.length >= 2
+        ? filterAttendees(state.product.attendees, state.searchQuery)
+        : [];
     const resultsEl = document.getElementById("manualSearchResults");
     if (resultsEl) {
       resultsEl.innerHTML = renderSearchResults(normalized.length >= 2);
@@ -782,7 +1056,9 @@ async function refreshCurrentProduct() {
 }
 
 function getProductStats(attendees) {
-  const relevant = attendees.filter((attendee) => attendee.status === "paid" || attendee.status === "verified");
+  const relevant = attendees.filter(
+    (attendee) => attendee.status === "paid" || attendee.status === "verified",
+  );
   const grouped = new Map();
 
   for (const attendee of relevant) {
@@ -799,12 +1075,15 @@ function getProductStats(attendees) {
     .sort((a, b) => a.label.localeCompare(b.label, "es"))
     .map((entry) => ({
       ...entry,
-      percentage: entry.total ? Math.round((entry.verified / entry.total) * 100) : 0,
+      percentage: entry.total
+        ? Math.round((entry.verified / entry.total) * 100)
+        : 0,
     }));
 
   return {
     totalPaidOrVerified: relevant.length,
-    totalVerified: relevant.filter((attendee) => attendee.status === "verified").length,
+    totalVerified: relevant.filter((attendee) => attendee.status === "verified")
+      .length,
     byType,
   };
 }
@@ -834,7 +1113,9 @@ async function autoStartScanner() {
     await startScanner();
   } catch (error) {
     console.error(error);
-    setStatus("pulsa iniciar camara si el navegador no la abre automaticamente");
+    setStatus(
+      "pulsa iniciar camara si el navegador no la abre automaticamente",
+    );
   }
 }
 
@@ -856,7 +1137,9 @@ function bindScannerControls() {
 
   zoomInBtn.onclick = async () => {
     try {
-      await setZoom((scannerState.currentZoom ?? 1) + (scannerState.zoomCaps?.step ?? 0.1));
+      await setZoom(
+        (scannerState.currentZoom ?? 1) + (scannerState.zoomCaps?.step ?? 0.1),
+      );
     } catch (error) {
       console.error(error);
       setStatus("zoom no soportado");
@@ -865,7 +1148,9 @@ function bindScannerControls() {
 
   zoomOutBtn.onclick = async () => {
     try {
-      await setZoom((scannerState.currentZoom ?? 1) - (scannerState.zoomCaps?.step ?? 0.1));
+      await setZoom(
+        (scannerState.currentZoom ?? 1) - (scannerState.zoomCaps?.step ?? 0.1),
+      );
     } catch (error) {
       console.error(error);
       setStatus("zoom no soportado");
@@ -888,7 +1173,8 @@ function showOverlay(type, title, subtitle) {
   const overlayIconEl = document.getElementById("scanOverlayIcon");
   const overlayTitleEl = document.getElementById("scanOverlayTitle");
   const overlaySubtitleEl = document.getElementById("scanOverlaySubtitle");
-  if (!(overlayEl && overlayIconEl && overlayTitleEl && overlaySubtitleEl)) return;
+  if (!(overlayEl && overlayIconEl && overlayTitleEl && overlaySubtitleEl))
+    return;
 
   overlayEl.classList.remove("hidden", "success", "error");
   overlayEl.classList.add(type);
@@ -916,9 +1202,19 @@ async function handleScanResult(decodedText) {
 
     if (validation.ok) {
       await refreshCurrentProduct();
-      showOverlay("success", validation.title, validation.subtitle);
+      state.lastValidation = {
+        ok: true,
+        message: validation.title,
+        attendee: validation.attendee,
+      };
+      state.pendingOverlay = {
+        type: "success",
+        title: validation.title,
+        subtitle: validation.subtitle,
+      };
+      syncLastValidationUI();
+      showValidationOverlay();
       setStatus("verificacion correcta");
-      setMessage(validation.subtitle);
     }
 
     if (scannerState.overlayTimer) {
@@ -934,12 +1230,11 @@ async function handleScanResult(decodedText) {
     }, 2000);
   } catch (error) {
     console.error(error);
-    const subtitle = error.data?.attendee
-      ? `${error.data.attendee.name} · ${error.data.attendee.registrationType} · ${metadataText(error.data.attendee.metadata)}`
-      : "Ha fallado el proceso";
+    const subtitle = error.message || "Ha fallado el proceso";
+    state.lastValidation = null;
+    syncLastValidationUI();
     showOverlay("error", "Error de verificacion", subtitle);
     setStatus("verificacion incorrecta");
-    setError(error.message);
 
     if (scannerState.overlayTimer) {
       clearTimeout(scannerState.overlayTimer);
@@ -959,7 +1254,10 @@ function onScanSuccess(decodedText) {
   if (scannerState.processingResult) return;
 
   const now = nowMs();
-  if (decodedText === scannerState.lastText && now - scannerState.lastTs <= 500) {
+  if (
+    decodedText === scannerState.lastText &&
+    now - scannerState.lastTs <= 500
+  ) {
     handleScanResult(decodedText);
     return;
   }
@@ -979,7 +1277,9 @@ async function setupTrackControls() {
   scannerState.track = stream.getVideoTracks()[0];
   if (!scannerState.track) return;
 
-  const capabilities = scannerState.track.getCapabilities ? scannerState.track.getCapabilities() : {};
+  const capabilities = scannerState.track.getCapabilities
+    ? scannerState.track.getCapabilities()
+    : {};
   const torchBtn = document.getElementById("torchBtn");
   const zoomInBtn = document.getElementById("zoomInBtn");
   const zoomOutBtn = document.getElementById("zoomOutBtn");
@@ -990,7 +1290,8 @@ async function setupTrackControls() {
 
   if (capabilities && capabilities.zoom && zoomInBtn && zoomOutBtn) {
     scannerState.zoomCaps = capabilities.zoom;
-    scannerState.currentZoom = scannerState.track.getSettings?.().zoom ?? scannerState.zoomCaps.min ?? 1;
+    scannerState.currentZoom =
+      scannerState.track.getSettings?.().zoom ?? scannerState.zoomCaps.min ?? 1;
     zoomInBtn.hidden = false;
     zoomOutBtn.hidden = false;
   }
@@ -1001,7 +1302,8 @@ async function setTorch(enabled) {
   await scannerState.track.applyConstraints({ advanced: [{ torch: enabled }] });
   scannerState.torchOn = enabled;
   const torchBtn = document.getElementById("torchBtn");
-  if (torchBtn) torchBtn.textContent = scannerState.torchOn ? "Linterna off" : "Linterna";
+  if (torchBtn)
+    torchBtn.textContent = scannerState.torchOn ? "Linterna off" : "Linterna";
 }
 
 async function setZoom(nextZoom) {
@@ -1026,14 +1328,18 @@ async function startScanner() {
     throw new Error("No se han encontrado camaras");
   }
 
-  const backCamera = cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) || cameras[cameras.length - 1];
+  const backCamera =
+    cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
+    cameras[cameras.length - 1];
 
   await scannerState.html5QrCode.start(
     { deviceId: { exact: backCamera.id } },
     {
       fps: 12,
       qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
+        const edge = Math.floor(
+          Math.min(viewfinderWidth, viewfinderHeight) * 0.72,
+        );
         return { width: edge, height: edge };
       },
       aspectRatio: 1.3333333,

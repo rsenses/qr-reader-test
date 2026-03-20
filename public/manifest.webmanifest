@@ -1,10 +1,10 @@
 {
-  "name": "QR Access",
-  "short_name": "QR Access",
+  "name": "Trackit by metech",
+  "short_name": "Trackit",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f8fafc",
-  "theme_color": "#0f172a",
+  "theme_color": "#E44F3A",
   "lang": "es",
   "description": "App practica para escanear QR, buscar inscritos y revisar estadisticas.",
   "icons": [

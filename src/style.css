@@ -4,6 +4,10 @@
 @theme {
   --font-sans: "Manrope", sans-serif;
   --font-heading: "Space Grotesk", sans-serif;
+  --accent: #e44f3a;
+  --accent-strong: #b43826;
+  --accent-soft: #f2b6ad;
+  --accent-faint: #fce5e1;
 }
 
 @layer base {
@@ -39,13 +43,17 @@
 @layer components {
   .app-nav-item {
     display: flex;
+    width: 100%;
     min-height: 4rem;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 0.35rem;
     border-radius: 1.25rem;
+    border: 0;
+    background: transparent;
     color: #64748b;
+    cursor: pointer;
     transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
   }
 
@@ -54,7 +62,7 @@
   }
 
   .app-nav-item-active {
-    background: #0f172a;
+    background: var(--accent);
     color: white;
     transform: translateY(-1px);
   }
@@ -154,7 +162,7 @@
   #reader__dashboard_section_fsr button {
     border-radius: 16px !important;
     border: 0 !important;
-    background: #0f172a !important;
+    background: var(--accent) !important;
     color: white !important;
     box-shadow: none !important;
   }

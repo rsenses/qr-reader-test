@@ -359,21 +359,28 @@ async function handleValidate(pathname) {
       {
         ok: false,
         message: "El inscrito no esta listo para validacion",
-        attendee: attendeeEntry ? publicAttendee(attendeeEntry.attendee) : undefined,
+        attendee: attendeeEntry
+          ? publicAttendee(attendeeEntry.attendee)
+          : undefined,
       },
       400,
     );
   }
 
   const candidates = getAllAttendeeEntries().filter(
-    (entry) => entry.attendee.status === "paid" || entry.attendee.status === "verified",
+    (entry) =>
+      entry.attendee.status === "paid" || entry.attendee.status === "verified",
   );
 
   if (!candidates.length) {
-    return jsonResponse({ ok: false, message: "No hay inscritos disponibles" }, 404);
+    return jsonResponse(
+      { ok: false, message: "No hay inscritos disponibles" },
+      404,
+    );
   }
 
-  const attendeeEntry = candidates[Math.floor(Math.random() * candidates.length)];
+  const attendeeEntry =
+    candidates[Math.floor(Math.random() * candidates.length)];
 
   attendeeEntry.attendee.status = "verified";
 

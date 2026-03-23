@@ -1,9 +1,7 @@
 import "./style.css";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { installFakeApi } from "./fakeApi";
 
-installFakeApi();
-
+const API_BASE_URL = "https://inscripciones.expansion.com/api/v1";
 const API_TOKEN = String(import.meta.env.API_TOKEN || "").trim();
 const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
@@ -31,6 +29,7 @@ const state = {
 const scannerState = {
   html5QrCode: null,
   isRunning: false,
+  isStarting: false,
   track: null,
   torchOn: false,
   currentZoom: null,
@@ -59,10 +58,7 @@ function applyTheme() {
 
   const themeMeta = document.querySelector('meta[name="theme-color"]');
   if (themeMeta) {
-    themeMeta.setAttribute(
-      "content",
-      theme === "dark" ? "#111827" : "#E44F3A",
-    );
+    themeMeta.setAttribute("content", theme === "dark" ? "#111827" : "#E44F3A");
   }
 }
 
@@ -92,6 +88,68 @@ function metadataText(metadata = []) {
   return metadata.map((item) => `${item.key}: ${item.value}`).join(" · ");
 }
 
+function normalizeMetadata(metadata) {
+  if (!metadata || typeof metadata !== "object") return [];
+
+  return Object.entries(metadata)
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => ({ key, value: String(value) }));
+}
+
+function normalizeRegistration(registration) {
+  const metadata = normalizeMetadata(registration.metadata);
+  const fullName = [
+    registration.user?.name || registration.metadata?.name,
+    registration.user?.last_name || registration.metadata?.last_name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return {
+    id: registration.id,
+    qrCode: registration.unique_id,
+    name: fullName || "Sin nombre",
+    email: registration.user?.email || registration.metadata?.email || "",
+    phone: registration.user?.phone || "",
+    company: registration.user?.company || registration.metadata?.company || "",
+    position:
+      registration.user?.position || registration.metadata?.position || "",
+    registrationType: registration.type || "",
+    status: registration.status || "",
+    metadata,
+  };
+}
+
+function buildProductFromRegistrations(productId, registrations, fallbackProduct) {
+  return {
+    ...(fallbackProduct || {}),
+    id: Number(productId),
+    name:
+      fallbackProduct?.name ||
+      registrations[0]?.product?.name ||
+      `Producto ${productId}`,
+    attendees: registrations.map(normalizeRegistration),
+  };
+}
+
+function getCurrentCampaignId() {
+  return (
+    state.productCampaign?.id ||
+    state.product?.campaign_id ||
+    state.campaign?.id ||
+    null
+  );
+}
+
+function buildSiteStorageUrl(path) {
+  if (!path) return "";
+  if (/^https?:\/\//.test(path)) return path;
+
+  const origin = new URL(API_BASE_URL).origin;
+  return `${origin}/storage/${String(path).replace(/^\//, "")}`;
+}
+
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
@@ -100,7 +158,9 @@ async function apiFetch(path, options = {}) {
     headers.set("Authorization", `Bearer ${API_TOKEN}`);
   }
 
-  const response = await fetch(path, {
+  const normalizedPath = String(path || "").replace(/^\/api\/v1/, "");
+
+  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
     ...options,
     headers,
   });
@@ -146,15 +206,23 @@ async function handleRouteChange() {
 
     if (route.name === "campaigns") {
       const response = await apiFetch("/api/v1/campaigns");
-      state.campaigns = response.campaigns;
+      state.campaigns = response.data || [];
     }
 
     if (route.name === "campaignProducts") {
+      if (!state.campaigns.length) {
+        const campaignsResponse = await apiFetch("/api/v1/campaigns");
+        state.campaigns = campaignsResponse.data || [];
+      }
+
       const response = await apiFetch(
-        `/api/v1/campaigns/${route.campaignId}/products`,
+        `/api/v1/products?campaign_id=${encodeURIComponent(route.campaignId)}&mode=presencial`,
       );
-      state.campaign = response.campaign;
-      state.products = response.products;
+      state.campaign =
+        state.campaigns.find(
+          (campaign) => String(campaign.id) === String(route.campaignId),
+        ) || null;
+      state.products = response || [];
     }
 
     if (
@@ -162,9 +230,17 @@ async function handleRouteChange() {
       route.name === "productSearch" ||
       route.name === "productStats"
     ) {
-      const response = await apiFetch(`/api/v1/products/${route.productId}`);
-      state.productCampaign = response.campaign;
-      state.product = response.product;
+      const response = await apiFetch(`/api/v1/registrations/${route.productId}`);
+      const registrations = response.data || [];
+      const fallbackProduct = state.products.find(
+        (product) => String(product.id) === String(route.productId),
+      );
+      state.productCampaign = state.campaign || state.productCampaign;
+      state.product = buildProductFromRegistrations(
+        route.productId,
+        registrations,
+        fallbackProduct,
+      );
       state.searchResults = [];
       state.searchQuery = "";
       if (route.name !== "productSearch") {
@@ -239,7 +315,7 @@ function renderPage(route) {
       <section class="flex min-h-[50vh] items-center justify-center rounded-[32px] border border-dashed border-slate-300 bg-white/70 p-8 text-center shadow-sm">
         <div>
           <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
-          <p class="mt-4 text-sm font-medium text-slate-600">Cargando datos de la demo...</p>
+          <p class="mt-4 text-sm font-medium text-slate-600">Cargando datos...</p>
         </div>
       </section>
     `;
@@ -304,6 +380,10 @@ function renderCampaigns() {
     return renderConfigError();
   }
 
+  if (!state.campaigns.length) {
+    return emptyState("No hay campañas disponibles.");
+  }
+
   return `
     <section>
       <div class="mb-4">
@@ -316,13 +396,13 @@ function renderCampaigns() {
         ${state.campaigns
           .map(
             (campaign) => `
-          <a href="#/campaigns/${campaign.id}" class="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-            <img src="${campaign.image}" alt="${escapeHtml(campaign.name)}" class="h-36 w-full object-cover" />
+          <article class="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+            ${campaign.image ? `<img src="${escapeAttribute(buildSiteStorageUrl(campaign.image))}" alt="${escapeHtml(campaign.name)}" class="w-full object-cover" />` : `<div class="flex h-36 items-center justify-center bg-slate-100 text-sm font-medium text-slate-500">Sin imagen</div>`}
             <div class="p-4">
               <h3 class="font-heading text-xl text-slate-900">${escapeHtml(campaign.name)}</h3>
-              <p class="mt-1 text-sm text-slate-500">${campaign.productCount} productos</p>
+              <a href="#/campaigns/${campaign.id}" class="mt-4 inline-flex rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Abrir campaña</a>
             </div>
-          </a>
+          </article>
         `,
           )
           .join("")}
@@ -351,7 +431,7 @@ function renderCampaignProducts() {
               (product) => `
             <a href="#/products/${product.id}" class="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
               <h3 class="font-heading text-xl text-slate-900">${escapeHtml(product.name)}</h3>
-              <p class="mt-1 text-sm text-slate-500">${product.attendeeCount} inscritos</p>
+              <p class="mt-1 text-sm text-slate-500">Ir al escaner</p>
             </a>
           `,
             )
@@ -386,9 +466,9 @@ function renderProductDetail() {
 
           <div class="space-y-3">
             <div class="controls flex flex-wrap gap-3 px-1">
-               <button id="torchBtn" type="button" hidden class="rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white">Linterna</button>
-              <button id="zoomOutBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">-</button>
-              <button id="zoomInBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">+</button>
+                <button id="torchBtn" type="button" hidden class="rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white">Linterna</button>
+               <button id="zoomOutBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">-</button>
+               <button id="zoomInBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">+</button>
             </div>
 
              <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
@@ -979,17 +1059,18 @@ function normalizeSearch(value) {
 }
 
 async function fakeValidateQr(decodedText) {
+  const campaignId = getCurrentCampaignId();
   const response = await apiFetch(
-    `/api/v1/validate/${encodeURIComponent(decodedText)}`,
+    `/api/v1/verify/${encodeURIComponent(decodedText)}?campaign_id=${encodeURIComponent(campaignId)}`,
     {
       method: "POST",
     },
   );
 
-  const attendee = response.attendee;
+  const attendee = normalizeRegistration(response.data);
   return {
     ok: true,
-    title: response.title,
+    title: "Verificado correctamente",
     subtitle: `${attendee.name} · ${attendee.registrationType} · ${metadataText(attendee.metadata)}`,
     attendee,
   };
@@ -998,9 +1079,12 @@ async function fakeValidateQr(decodedText) {
 async function refreshCurrentProduct() {
   if (!state.product?.id) return;
 
-  const response = await apiFetch(`/api/v1/products/${state.product.id}`);
-  state.productCampaign = response.campaign;
-  state.product = response.product;
+  const response = await apiFetch(`/api/v1/registrations/${state.product.id}`);
+  state.product = buildProductFromRegistrations(
+    state.product.id,
+    response.data || [],
+    state.product,
+  );
 
   if (getRoute().name === "productSearch") {
     const normalized = normalizeSearch(state.searchQuery);
@@ -1067,15 +1151,25 @@ async function setupScanner({ autoStart = false } = {}) {
 }
 
 async function autoStartScanner() {
-  if (scannerState.isRunning || !scannerState.html5QrCode) return;
+  if (scannerState.isRunning || scannerState.isStarting || !scannerState.html5QrCode)
+    return;
 
+  scannerState.isStarting = true;
   try {
+    await waitForReader();
     await startScanner();
   } catch (error) {
     console.error(error);
-    setStatus(
-      "pulsa iniciar camara si el navegador no la abre automaticamente",
-    );
+    try {
+      await recreateScanner();
+      await waitForReader();
+      await startScanner();
+    } catch (retryError) {
+      console.error(retryError);
+      setStatus("no se pudo abrir la camara");
+    }
+  } finally {
+    scannerState.isStarting = false;
   }
 }
 
@@ -1283,37 +1377,49 @@ async function startScanner() {
   if (scannerState.isRunning || !scannerState.html5QrCode) return;
 
   setStatus("pidiendo acceso a camara...");
-  const cameras = await Html5Qrcode.getCameras();
-  if (!cameras || cameras.length === 0) {
-    throw new Error("No se han encontrado camaras");
-  }
-
-  const backCamera =
-    cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
-    cameras[cameras.length - 1];
-
-  await scannerState.html5QrCode.start(
-    { deviceId: { exact: backCamera.id } },
-    {
-      fps: 12,
-      qrbox: (viewfinderWidth, viewfinderHeight) => {
-        const edge = Math.floor(
-          Math.min(viewfinderWidth, viewfinderHeight) * 0.72,
-        );
-        return { width: edge, height: edge };
-      },
-      aspectRatio: 1.3333333,
-      disableFlip: true,
-      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-      videoConstraints: {
-        facingMode: "environment",
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
+  const scannerConfig = {
+    fps: 12,
+    qrbox: (viewfinderWidth, viewfinderHeight) => {
+      const edge = Math.floor(
+        Math.min(viewfinderWidth, viewfinderHeight) * 0.72,
+      );
+      return { width: edge, height: edge };
     },
-    onScanSuccess,
-    onScanFailure,
-  );
+    aspectRatio: 1.3333333,
+    disableFlip: true,
+    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+    videoConstraints: {
+      facingMode: "environment",
+      width: { ideal: 1280 },
+      height: { ideal: 720 },
+    },
+  };
+
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    if (!cameras || cameras.length === 0) {
+      throw new Error("No se han encontrado camaras");
+    }
+
+    const backCamera =
+      cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
+      cameras[cameras.length - 1];
+
+    await scannerState.html5QrCode.start(
+      { deviceId: { exact: backCamera.id } },
+      scannerConfig,
+      onScanSuccess,
+      onScanFailure,
+    );
+  } catch (primaryError) {
+    await recreateScanner();
+    await scannerState.html5QrCode.start(
+      { facingMode: "environment" },
+      scannerConfig,
+      onScanSuccess,
+      onScanFailure,
+    );
+  }
 
   scannerState.isRunning = true;
   setStatus("escaneando");
@@ -1333,6 +1439,7 @@ async function stopScanner() {
   await scannerState.html5QrCode.clear();
 
   scannerState.isRunning = false;
+  scannerState.isStarting = false;
   scannerState.track = null;
   scannerState.torchOn = false;
   scannerState.currentZoom = null;
@@ -1349,6 +1456,32 @@ async function stopScanner() {
   if (zoomInBtn) zoomInBtn.hidden = true;
   if (zoomOutBtn) zoomOutBtn.hidden = true;
   setStatus("camara parada");
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+}
+
+async function waitForReader() {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const readerEl = document.getElementById("reader");
+    if (readerEl) return readerEl;
+    await nextFrame();
+  }
+
+  throw new Error("No se encontro el contenedor del escaner");
+}
+
+async function recreateScanner() {
+  if (scannerState.html5QrCode) {
+    try {
+      await scannerState.html5QrCode.clear();
+    } catch {}
+  }
+
+  await waitForReader();
+  scannerState.html5QrCode = new Html5Qrcode("reader");
+  scannerState.boundProductId = state.product?.id ?? null;
 }
 
 async function destroyScanner() {
@@ -1368,6 +1501,7 @@ async function destroyScanner() {
 
   scannerState.html5QrCode = null;
   scannerState.boundProductId = null;
+  scannerState.isStarting = false;
 }
 
 function escapeHtml(value) {

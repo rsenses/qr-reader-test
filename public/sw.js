@@ -1,5 +1,13 @@
-const CACHE_NAME = "qr-access-v1";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/favicon.svg", "/icons.svg"];
+const CACHE_NAME = "qr-access-v2";
+const APP_SHELL = [
+  "/",
+  "/manifest.webmanifest",
+  "/favicon.svg",
+  "/icons.svg",
+  "/apple-touch-icon.png",
+  "/pwa-192.png",
+  "/pwa-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));

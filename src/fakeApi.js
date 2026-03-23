@@ -1,4 +1,5 @@
 const API_PREFIX = "/api/v1";
+const API_TOKEN = String(import.meta.env.API_TOKEN || "").trim();
 
 function svgDataUrl(title, palette) {
   const [bgFrom, bgTo, accent] = palette;
@@ -145,10 +146,6 @@ const database = {
   ],
 };
 
-function createToken(email) {
-  return `fake-token-${btoa(`${email}:${Date.now()}`)}`;
-}
-
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -170,7 +167,7 @@ function normalizeHeaders(headers) {
 function ensureAuthorized(requestHeaders) {
   const headers = normalizeHeaders(requestHeaders);
   const auth = headers.get("Authorization") || headers.get("authorization");
-  return Boolean(auth && auth.startsWith("Bearer fake-token-"));
+  return Boolean(API_TOKEN && auth === `Bearer ${API_TOKEN}`);
 }
 
 function findProduct(productId) {
@@ -250,21 +247,6 @@ function publicAttendee(attendee) {
     status: attendee.status,
     metadata: attendee.metadata,
   };
-}
-
-async function handleLogin(init) {
-  const body = await parseBody(init);
-  const email = body.email || "demo@example.com";
-  const name = body.name || email.split("@")[0];
-
-  return jsonResponse({
-    ok: true,
-    token: createToken(email),
-    user: {
-      name,
-      email,
-    },
-  });
 }
 
 async function handleRegister(init) {
@@ -416,10 +398,6 @@ export function installFakeApi() {
       (typeof input !== "string" ? input.method : "GET") ||
       "GET"
     ).toUpperCase();
-
-    if (url.pathname === `${API_PREFIX}/login` && method === "POST") {
-      return handleLogin(init);
-    }
 
     if (url.pathname === `${API_PREFIX}/register/` && method === "POST") {
       return handleRegister(init);

@@ -4,15 +4,12 @@ import { installFakeApi } from "./fakeApi";
 
 installFakeApi();
 
-const TOKEN_KEY = "qr-test-token";
-const USER_KEY = "qr-test-user";
+const API_TOKEN = String(import.meta.env.API_TOKEN || "").trim();
 const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
 const app = document.querySelector("#app");
 
 const state = {
-  token: localStorage.getItem(TOKEN_KEY),
-  user: safeJsonParse(localStorage.getItem(USER_KEY)),
   campaigns: [],
   products: [],
   campaign: null,
@@ -21,13 +18,14 @@ const state = {
   loading: false,
   searchQuery: "",
   searchResults: [],
-  menuOpen: false,
   lastValidation: null,
   pendingOverlay: null,
   searchValidation: null,
-  loginError: null,
   registerMessage: null,
   registerError: null,
+  configError: !API_TOKEN
+    ? "Falta la variable de entorno API_TOKEN. Configurala para acceder a la API."
+    : null,
 };
 
 const scannerState = {
@@ -68,14 +66,6 @@ function applyTheme() {
   }
 }
 
-function safeJsonParse(value) {
-  try {
-    return value ? JSON.parse(value) : null;
-  } catch {
-    return null;
-  }
-}
-
 function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
 
@@ -93,7 +83,6 @@ function nowMs() {
 }
 
 function clearScreenMessages() {
-  state.loginError = null;
   state.registerMessage = null;
   state.registerError = null;
 }
@@ -107,8 +96,8 @@ async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   headers.set("Content-Type", "application/json");
 
-  if (state.token) {
-    headers.set("Authorization", `Bearer ${state.token}`);
+  if (API_TOKEN) {
+    headers.set("Authorization", `Bearer ${API_TOKEN}`);
   }
 
   const response = await fetch(path, {
@@ -121,6 +110,7 @@ async function apiFetch(path, options = {}) {
   if (!response.ok) {
     const error = new Error(data.message || "Error inesperado");
     error.data = data;
+    error.status = response.status;
     throw error;
   }
 
@@ -131,7 +121,7 @@ async function bootstrap() {
   applyTheme();
 
   if (!window.location.hash) {
-    window.location.hash = state.token ? "#/campaigns" : "#/login";
+    window.location.hash = "#/campaigns";
     return;
   }
 
@@ -140,11 +130,6 @@ async function bootstrap() {
 
 async function handleRouteChange() {
   const route = getRoute();
-
-  if (!state.token && route.name !== "login" && route.name !== "register") {
-    window.location.hash = "#/login";
-    return;
-  }
 
   if (route.name !== "product") {
     await destroyScanner();
@@ -155,6 +140,10 @@ async function handleRouteChange() {
   render();
 
   try {
+    if (state.configError) {
+      return;
+    }
+
     if (route.name === "campaigns") {
       const response = await apiFetch("/api/v1/campaigns");
       state.campaigns = response.campaigns;
@@ -183,12 +172,12 @@ async function handleRouteChange() {
       }
     }
   } catch (error) {
-    if (route.name === "login") {
-      state.loginError = error.message;
-    }
-
     if (route.name === "register") {
       state.registerError = error.message;
+    }
+
+    if (route.name !== "register" && error.status === 401) {
+      state.configError = error.message;
     }
   } finally {
     state.loading = false;
@@ -201,9 +190,8 @@ async function handleRouteChange() {
 }
 
 function getRoute() {
-  const hash = window.location.hash.replace(/^#/, "") || "/login";
+  const hash = window.location.hash.replace(/^#/, "") || "/campaigns";
 
-  if (hash === "/login") return { name: "login" };
   if (hash === "/register") return { name: "register" };
   if (hash === "/campaigns") return { name: "campaigns" };
 
@@ -222,7 +210,7 @@ function getRoute() {
   if (productStatsMatch)
     return { name: "productStats", productId: productStatsMatch[1] };
 
-  return { name: state.token ? "campaigns" : "login" };
+  return { name: "campaigns" };
 }
 
 function render() {
@@ -257,7 +245,6 @@ function renderPage(route) {
     `;
   }
 
-  if (route.name === "login") return renderLogin();
   if (route.name === "register") return renderRegister();
   if (route.name === "campaigns") return renderCampaigns();
   if (route.name === "campaignProducts") return renderCampaignProducts();
@@ -268,29 +255,18 @@ function renderPage(route) {
   return renderCampaigns();
 }
 
-function renderLogin() {
+function renderConfigError() {
   return `
     <section class="flex flex-1 items-center">
       <article class="app-card w-full rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="hero-badge">
           <span class="hero-badge__icon">${renderIcon("shield")}</span>
-          <span>Check-in demo fiable y rapido</span>
+          <span>Acceso protegido por Cloudflare WARP</span>
         </div>
         <p class="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
-        <h2 class="login-title mt-2 font-heading text-3xl text-slate-900">Control de acceso claro, agil y moderno.</h2>
-        <p class="mt-3 max-w-sm text-sm text-slate-500">Una interfaz pensada para validar asistentes en segundos, con foco total en legibilidad y confianza.</p>
-        ${state.loginError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.loginError)}</div>` : ""}
-        <form id="loginForm" class="mt-6 space-y-4">
-          <label class="block">
-            <span class="mb-2 block text-sm font-semibold text-slate-700">Email</span>
-            <input id="login-email" type="email" name="email" autocomplete="username email" required value="demo@qrtest.es" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
-          </label>
-          <label class="block">
-            <span class="mb-2 block text-sm font-semibold text-slate-700">Password</span>
-            <input id="login-password" type="password" name="password" autocomplete="current-password" required value="123456" class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
-          </label>
-          <button class="w-full rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(228,79,58,0.28)]">Entrar</button>
-        </form>
+        <h2 class="login-title mt-2 font-heading text-3xl text-slate-900">La aplicacion ya no usa login.</h2>
+        <p class="mt-3 max-w-md text-sm text-slate-500">El acceso web queda restringido por Cloudflare WARP y la API exige un bearer token configurado en entorno.</p>
+        <div class="mt-6 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-4 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.configError || "No se pudo inicializar la configuracion de acceso.")}</div>
       </article>
     </section>
   `;
@@ -304,7 +280,7 @@ function renderRegister() {
           <h2 class="section-title font-heading text-2xl text-slate-900">Nuevo registro</h2>
           <p class="mt-1 text-sm text-slate-500">Formulario simple, sin metadatos.</p>
         </div>
-        ${state.product ? `<a href="#/products/${state.product.id}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Volver</a>` : `<a href="#/login" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Login</a>`}
+        ${state.product ? `<a href="#/products/${state.product.id}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Volver</a>` : `<a href="#/campaigns" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Campanas</a>`}
       </div>
 
       ${state.registerError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.registerError)}</div>` : ""}
@@ -324,6 +300,10 @@ function renderRegister() {
 }
 
 function renderCampaigns() {
+  if (state.configError) {
+    return renderConfigError();
+  }
+
   return `
     <section>
       <div class="mb-4">
@@ -352,6 +332,10 @@ function renderCampaigns() {
 }
 
 function renderCampaignProducts() {
+  if (state.configError) {
+    return renderConfigError();
+  }
+
   if (!state.campaign) {
     return emptyState("No encontramos la campaña solicitada.");
   }
@@ -379,6 +363,10 @@ function renderCampaignProducts() {
 }
 
 function renderProductDetail() {
+  if (state.configError) {
+    return renderConfigError();
+  }
+
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -422,6 +410,10 @@ function renderProductDetail() {
 }
 
 function renderProductSearch() {
+  if (state.configError) {
+    return renderConfigError();
+  }
+
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -456,6 +448,10 @@ function renderProductSearch() {
 }
 
 function renderProductStats() {
+  if (state.configError) {
+    return renderConfigError();
+  }
+
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -723,33 +719,13 @@ function renderField(name, label, type = "text") {
 }
 
 function renderAppNav(route) {
-  if (!state.token || route.name === "login") return "";
-
   const isProductArea =
     route.name === "product" ||
     route.name === "productSearch" ||
     route.name === "productStats" ||
     route.name === "register";
-  const menuPanel = `
-      <div id="menuPanel" data-menu-root class="${state.menuOpen ? "" : "hidden "}pointer-events-auto absolute bottom-[calc(100%+0.75rem)] right-0 z-40 w-56 rounded-[24px] border border-white/80 bg-white p-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
-        <p class="px-2 pb-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Sesion</p>
-        <button type="button" data-action="request-logout" class="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-semibold text-[color:var(--accent-strong)] transition hover:bg-[color:var(--accent-faint)]">
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[color:var(--accent-faint)] text-[color:var(--accent-strong)]">${renderIcon("logout")}</span>
-          <span>Salir</span>
-        </button>
-      </div>
-    `;
 
-  if (!isProductArea || !state.product) {
-    return `
-      <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Menu principal">
-        <div class="app-bottom-nav relative flex justify-center rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
-          ${menuPanel}
-          ${renderMenuButton("w-[5.75rem]")}
-        </div>
-      </nav>
-    `;
-  }
+  if (!isProductArea || !state.product) return "";
 
   const items = [
     {
@@ -782,8 +758,7 @@ function renderAppNav(route) {
 
   return `
     <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Navegacion del producto">
-      <div class="app-bottom-nav relative grid grid-cols-5 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
-        ${menuPanel}
+      <div class="app-bottom-nav relative grid grid-cols-4 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
         ${items
           .map((item) => {
             const isActive =
@@ -797,34 +772,9 @@ function renderAppNav(route) {
           `;
           })
           .join("")}
-        ${renderMenuButton()}
       </div>
     </nav>
   `;
-}
-
-function renderMenuButton(widthClass = "w-full") {
-  return `
-    <div data-menu-root class="relative flex items-center justify-center">
-      <button id="menuToggleButton" type="button" data-action="toggle-menu" aria-label="Menu" class="app-nav-item ${widthClass} ${state.menuOpen ? "app-nav-item-active" : ""}">
-        <span class="app-nav-icon">${renderIcon("menu")}</span>
-        <span class="app-nav-label">Menu</span>
-      </button>
-    </div>
-  `;
-}
-
-function syncMenuUI() {
-  const menuPanel = document.getElementById("menuPanel");
-  const toggleButton = document.getElementById("menuToggleButton");
-
-  if (menuPanel) {
-    menuPanel.classList.toggle("hidden", !state.menuOpen);
-  }
-
-  if (toggleButton) {
-    toggleButton.classList.toggle("app-nav-item-active", state.menuOpen);
-  }
 }
 
 function renderIcon(name) {
@@ -835,9 +785,6 @@ function renderIcon(name) {
     stats:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-7"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
-    menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h16"/></svg>',
-    logout:
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
     close:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     shield:
@@ -855,28 +802,6 @@ async function handleSubmit(event) {
   const form = event.target;
 
   if (!(form instanceof HTMLFormElement)) return;
-
-  if (form.id === "loginForm") {
-    event.preventDefault();
-    const formData = Object.fromEntries(new FormData(form).entries());
-
-    try {
-      const response = await apiFetch("/api/v1/login", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
-
-      state.loginError = null;
-      state.token = response.token;
-      state.user = response.user;
-      localStorage.setItem(TOKEN_KEY, response.token);
-      localStorage.setItem(USER_KEY, JSON.stringify(response.user));
-      window.location.hash = "#/campaigns";
-    } catch (error) {
-      state.loginError = error.message;
-      render();
-    }
-  }
 
   if (form.id === "registerForm") {
     event.preventDefault();
@@ -904,37 +829,11 @@ async function handleClick(event) {
   const target = event.target;
   if (!(target instanceof Element)) return;
 
-  if (state.menuOpen && !target.closest("[data-menu-root]")) {
-    state.menuOpen = false;
-    syncMenuUI();
-    return;
-  }
-
   const actionEl = target.closest("[data-action]");
   if (!(actionEl instanceof HTMLElement)) return;
 
   const action = actionEl.dataset.action;
   if (!action) return;
-
-  if (action === "logout") {
-    await logout();
-    return;
-  }
-
-  if (action === "toggle-menu") {
-    state.menuOpen = !state.menuOpen;
-    syncMenuUI();
-    return;
-  }
-
-  if (action === "request-logout") {
-    state.menuOpen = false;
-    syncMenuUI();
-    if (window.confirm("¿Seguro que quieres salir?")) {
-      await logout();
-    }
-    return;
-  }
 
   if (action === "validate-attendee") {
     try {
@@ -1024,16 +923,6 @@ async function handleClick(event) {
     syncSearchClearButton();
     render();
   }
-}
-
-async function logout() {
-  await destroyScanner();
-  state.token = null;
-  state.user = null;
-  state.menuOpen = false;
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
-  window.location.hash = "#/login";
 }
 
 function handleInput(event) {

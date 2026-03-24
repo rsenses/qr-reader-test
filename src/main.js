@@ -2,12 +2,13 @@ import "./style.css";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
 const API_BASE_URL = "https://inscripciones.expansion.com/api/v1";
-const API_TOKEN = String(import.meta.env.API_TOKEN || "").trim();
+const TOKEN_KEY = "qr-test-token";
 const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
 
 const app = document.querySelector("#app");
 
 const state = {
+  token: getStoredToken(),
   campaigns: [],
   products: [],
   campaign: null,
@@ -19,12 +20,10 @@ const state = {
   lastValidation: null,
   pendingOverlay: null,
   searchValidation: null,
+  loginError: null,
   registerMessage: null,
   registerError: null,
   updateAvailable: false,
-  configError: !API_TOKEN
-    ? "Falta la variable de entorno API_TOKEN. Configurala para acceder a la API."
-    : null,
 };
 
 let serviceWorkerRegistration = null;
@@ -118,8 +117,77 @@ function nowMs() {
 }
 
 function clearScreenMessages() {
+  state.loginError = null;
   state.registerMessage = null;
   state.registerError = null;
+}
+
+function getStoredToken() {
+  return String(localStorage.getItem(TOKEN_KEY) || "").trim();
+}
+
+function persistToken(token) {
+  const normalizedToken = String(token || "").trim();
+  state.token = normalizedToken;
+
+  if (normalizedToken) {
+    localStorage.setItem(TOKEN_KEY, normalizedToken);
+    return;
+  }
+
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+function resetSessionState() {
+  state.campaigns = [];
+  state.products = [];
+  state.campaign = null;
+  state.product = null;
+  state.productCampaign = null;
+  state.searchQuery = "";
+  state.searchResults = [];
+  state.lastValidation = null;
+  state.pendingOverlay = null;
+  state.searchValidation = null;
+  state.registerMessage = null;
+  state.registerError = null;
+}
+
+async function clearAuthAndRedirect() {
+  await destroyScanner();
+  persistToken("");
+  resetSessionState();
+
+  if (window.location.hash !== "#/login") {
+    window.location.hash = "#/login";
+  }
+}
+
+function extractAuthToken(payload) {
+  const candidates = [
+    payload?.token,
+    payload?.access_token,
+    payload?.data?.token,
+    payload?.data?.access_token,
+  ];
+
+  return candidates.find((value) => String(value || "").trim()) || "";
+}
+
+async function parseResponseBody(response) {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  const text = await response.text();
+
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return { message: text };
+  }
 }
 
 function metadataText(metadata = []) {
@@ -235,23 +303,29 @@ function buildSiteStorageUrl(path) {
 }
 
 async function apiFetch(path, options = {}) {
+  const { skipAuth = false, ...requestOptions } = options;
   const headers = new Headers(options.headers || {});
+  headers.set("Accept", "application/json");
   headers.set("Content-Type", "application/json");
 
-  if (API_TOKEN) {
-    headers.set("Authorization", `Bearer ${API_TOKEN}`);
+  if (!skipAuth && state.token) {
+    headers.set("Authorization", `Bearer ${state.token}`);
   }
 
   const normalizedPath = String(path || "").replace(/^\/api\/v1/, "");
 
   const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
-    ...options,
+    ...requestOptions,
     headers,
   });
 
-  const data = await response.json();
+  const data = await parseResponseBody(response);
 
   if (!response.ok) {
+    if (response.status === 401) {
+      await clearAuthAndRedirect();
+    }
+
     const error = new Error(data.message || "Error inesperado");
     error.data = data;
     error.status = response.status;
@@ -265,7 +339,7 @@ async function bootstrap() {
   applyTheme();
 
   if (!window.location.hash) {
-    window.location.hash = "#/campaigns";
+    window.location.hash = state.token ? "#/campaigns" : "#/login";
     return;
   }
 
@@ -275,19 +349,33 @@ async function bootstrap() {
 async function handleRouteChange() {
   const route = getRoute();
 
+  if (!state.token && route.name !== "login") {
+    await destroyScanner();
+    window.location.hash = "#/login";
+    return;
+  }
+
+  if (state.token && route.name === "login") {
+    window.location.hash = "#/campaigns";
+    return;
+  }
+
   if (route.name !== "product") {
     await destroyScanner();
   }
 
   clearScreenMessages();
+
+  if (route.name === "login") {
+    state.loading = false;
+    render();
+    return;
+  }
+
   state.loading = true;
   render();
 
   try {
-    if (state.configError) {
-      return;
-    }
-
     if (route.name === "campaigns") {
       await ensureCampaignsLoaded();
     }
@@ -328,17 +416,20 @@ async function handleRouteChange() {
       }
     }
   } catch (error) {
-    if (route.name === "register") {
-      state.registerError = error.message;
+    if (route.name === "login") {
+      state.loginError = error.message;
     }
 
-    if (route.name !== "register" && error.status === 401) {
-      state.configError = error.message;
+    if (route.name === "register") {
+      state.registerError = error.message;
     }
   } finally {
     state.loading = false;
     render();
+
     if (
+      state.token &&
+      getRoute().name === "product" &&
       route.name === "product" &&
       String(state.product?.id) === String(route.productId)
     ) {
@@ -349,7 +440,9 @@ async function handleRouteChange() {
 }
 
 function getRoute() {
-  const hash = window.location.hash.replace(/^#/, "") || "/campaigns";
+  const hash = window.location.hash.replace(/^#/, "") || "/login";
+
+  if (hash === "/login") return { name: "login" };
 
   if (hash === "/campaigns") return { name: "campaigns" };
 
@@ -371,7 +464,7 @@ function getRoute() {
   if (productStatsMatch)
     return { name: "productStats", productId: productStatsMatch[1] };
 
-  return { name: "campaigns" };
+  return { name: state.token ? "campaigns" : "login" };
 }
 
 function render() {
@@ -422,6 +515,7 @@ function renderPage(route) {
     `;
   }
 
+  if (route.name === "login") return renderLogin();
   if (route.name === "register") return renderRegister();
   if (route.name === "campaigns") return renderCampaigns();
   if (route.name === "campaignProducts") return renderCampaignProducts();
@@ -432,18 +526,29 @@ function renderPage(route) {
   return renderCampaigns();
 }
 
-function renderConfigError() {
+function renderLogin() {
   return `
     <section class="flex flex-1 items-center">
       <article class="app-card w-full rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div class="hero-badge">
           <span class="hero-badge__icon">${renderIcon("shield")}</span>
-          <span>Acceso protegido por Cloudflare WARP</span>
+          <span>Acceso seguro</span>
         </div>
         <p class="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
-        <h2 class="login-title mt-2 font-heading text-3xl text-slate-900">La aplicacion ya no usa login.</h2>
-        <p class="mt-3 max-w-md text-sm text-slate-500">El acceso web queda restringido por Cloudflare WARP y la API exige un bearer token configurado en entorno.</p>
-        <div class="mt-6 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-4 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.configError || "No se pudo inicializar la configuracion de acceso.")}</div>
+        <h2 class="login-title mt-2 font-heading text-3xl text-slate-900">Control de acceso claro, agil y moderno.</h2>
+        <p class="mt-3 max-w-md text-sm text-slate-500">Inicia sesion para acceder a las campanas y seguir usando la navegacion actual de la app.</p>
+        ${state.loginError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.loginError)}</div>` : ""}
+        <form id="loginForm" class="mt-6 space-y-4">
+          <label class="block">
+            <span class="mb-2 block text-sm font-semibold text-slate-700">Email</span>
+            <input id="login-email" type="email" name="email" autocomplete="username email" required class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
+          </label>
+          <label class="block">
+            <span class="mb-2 block text-sm font-semibold text-slate-700">Password</span>
+            <input id="login-password" type="password" name="password" autocomplete="current-password" required class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
+          </label>
+          <button class="w-full rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_30px_rgba(228,79,58,0.28)]">Entrar</button>
+        </form>
       </article>
     </section>
   `;
@@ -481,10 +586,6 @@ function renderRegister() {
 }
 
 function renderCampaigns() {
-  if (state.configError) {
-    return renderConfigError();
-  }
-
   if (!state.campaigns.length) {
     return emptyState("No hay campañas disponibles.");
   }
@@ -517,10 +618,6 @@ function renderCampaigns() {
 }
 
 function renderCampaignProducts() {
-  if (state.configError) {
-    return renderConfigError();
-  }
-
   if (!state.campaign) {
     return emptyState("No encontramos la campaña solicitada.");
   }
@@ -548,10 +645,6 @@ function renderCampaignProducts() {
 }
 
 function renderProductDetail() {
-  if (state.configError) {
-    return renderConfigError();
-  }
-
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -605,10 +698,6 @@ function renderProductDetail() {
 }
 
 function renderProductSearch() {
-  if (state.configError) {
-    return renderConfigError();
-  }
-
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -643,10 +732,6 @@ function renderProductSearch() {
 }
 
 function renderProductStats() {
-  if (state.configError) {
-    return renderConfigError();
-  }
-
   if (!state.product) {
     return emptyState("No encontramos el producto solicitado.");
   }
@@ -1021,6 +1106,34 @@ async function handleSubmit(event) {
   const form = event.target;
 
   if (!(form instanceof HTMLFormElement)) return;
+
+  if (form.id === "loginForm") {
+    event.preventDefault();
+    const formData = Object.fromEntries(new FormData(form).entries());
+
+    try {
+      const response = await apiFetch("/api/v1/login", {
+        method: "POST",
+        skipAuth: true,
+        body: JSON.stringify(formData),
+      });
+      const token = extractAuthToken(response);
+
+      if (!token) {
+        throw new Error("La API no devolvio un token valido.");
+      }
+
+      state.loginError = null;
+      resetSessionState();
+      persistToken(token);
+      window.location.hash = "#/campaigns";
+    } catch (error) {
+      state.loginError = error.message;
+      render();
+    }
+
+    return;
+  }
 
   if (form.id === "registerForm") {
     event.preventDefault();

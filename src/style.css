@@ -569,7 +569,7 @@
 
     .reader-frame,
     #reader video {
-      min-height: min(360px, calc(100svh - 15rem)) !important;
+      min-height: min(320px, calc(100svh - 17.5rem)) !important;
     }
 
     .scan-overlay {
@@ -655,7 +655,7 @@
 
     .reader-frame,
     #reader video {
-      min-height: min(320px, calc(100svh - 14rem)) !important;
+      min-height: min(280px, calc(100svh - 16.5rem)) !important;
     }
 
     .scanner-controls {

@@ -21,10 +21,14 @@ const state = {
   searchValidation: null,
   registerMessage: null,
   registerError: null,
+  updateAvailable: false,
   configError: !API_TOKEN
     ? "Falta la variable de entorno API_TOKEN. Configurala para acceder a la API."
     : null,
 };
+
+let serviceWorkerRegistration = null;
+let refreshingForUpdate = false;
 
 const scannerState = {
   html5QrCode: null,
@@ -66,10 +70,46 @@ function registerServiceWorker() {
 
   window.addEventListener("load", async () => {
     try {
-      await navigator.serviceWorker.register("/sw.js");
+      serviceWorkerRegistration = await navigator.serviceWorker.register("/sw.js");
+      observeServiceWorker(serviceWorkerRegistration);
+      await serviceWorkerRegistration.update();
+
+      window.addEventListener("focus", () => {
+        serviceWorkerRegistration?.update().catch(() => {});
+      });
+
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshingForUpdate) return;
+        refreshingForUpdate = true;
+        window.location.reload();
+      });
     } catch (error) {
       console.error("No se pudo registrar el service worker", error);
     }
+  });
+}
+
+function observeServiceWorker(registration) {
+  if (!registration) return;
+
+  if (registration.waiting) {
+    state.updateAvailable = true;
+    render();
+  }
+
+  registration.addEventListener("updatefound", () => {
+    const installingWorker = registration.installing;
+    if (!installingWorker) return;
+
+    installingWorker.addEventListener("statechange", () => {
+      if (
+        installingWorker.state === "installed" &&
+        navigator.serviceWorker.controller
+      ) {
+        state.updateAvailable = true;
+        render();
+      }
+    });
   });
 }
 
@@ -338,6 +378,7 @@ function render() {
   const route = getRoute();
   const page = renderPage(route);
   const appNav = renderAppNav(route);
+  const updateBanner = renderUpdateBanner();
 
   app.innerHTML = `
     <div class="app-shell min-h-screen text-slate-900">
@@ -347,11 +388,26 @@ function render() {
         <span class="app-shell__grid"></span>
       </div>
       <div class="app-shell__inner mx-auto flex min-h-screen w-full max-w-3xl flex-col px-4 py-4 sm:px-6">
+        ${updateBanner}
         <main class="app-main flex-1">${page}</main>
 
         ${appNav}
       </div>
     </div>
+  `;
+}
+
+function renderUpdateBanner() {
+  if (!state.updateAvailable) return "";
+
+  return `
+    <section class="app-update-banner mb-4 flex items-center justify-between gap-3 rounded-[24px] border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 shadow-sm">
+      <div>
+        <p class="text-sm font-semibold text-[color:var(--accent-strong)]">Nueva version disponible</p>
+        <p class="mt-1 text-xs text-[color:var(--accent-strong)]/80">Actualiza la app para cargar los ultimos cambios.</p>
+      </div>
+      <button type="button" data-action="update-app" class="shrink-0 rounded-xl bg-[color:var(--accent)] px-4 py-2 text-sm font-semibold text-white">Actualizar</button>
+    </section>
   `;
 }
 function renderPage(route) {
@@ -1100,6 +1156,18 @@ async function handleClick(event) {
         showValidationOverlay();
       }
     }
+    return;
+  }
+
+  if (action === "update-app") {
+    event.preventDefault();
+
+    if (serviceWorkerRegistration?.waiting) {
+      serviceWorkerRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+      return;
+    }
+
+    window.location.reload();
     return;
   }
 

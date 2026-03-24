@@ -1,4 +1,4 @@
-const CACHE_NAME = "qr-access-v2";
+const CACHE_NAME = "qr-access-v3";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -8,6 +8,44 @@ const APP_SHELL = [
   "/pwa-192.png",
   "/pwa-512.png",
 ];
+
+function isCacheableRequest(request) {
+  const url = new URL(request.url);
+
+  if (request.method !== "GET") return false;
+  if (url.origin !== self.location.origin) return false;
+  if (url.pathname.startsWith("/api/")) return false;
+
+  return true;
+}
+
+async function networkFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    const networkResponse = await fetch(request);
+    if (networkResponse && networkResponse.status === 200) {
+      cache.put(request, networkResponse.clone());
+    }
+    return networkResponse;
+  } catch (error) {
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) return cachedResponse;
+    throw error;
+  }
+}
+
+async function cacheFirst(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cachedResponse = await cache.match(request);
+  if (cachedResponse) return cachedResponse;
+
+  const networkResponse = await fetch(request);
+  if (networkResponse && networkResponse.status === 200) {
+    cache.put(request, networkResponse.clone());
+  }
+  return networkResponse;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
@@ -24,21 +62,23 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  if (!isCacheableRequest(event.request)) return;
+
+  const requestUrl = new URL(event.request.url);
+  const isNavigationRequest =
+    event.request.mode === "navigate" ||
+    event.request.destination === "document" ||
+    requestUrl.pathname === "/";
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
-
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200) {
-          return networkResponse;
-        }
-
-        const responseClone = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-        return networkResponse;
-      });
-    }),
+    isNavigationRequest
+      ? networkFirst(event.request)
+      : cacheFirst(event.request),
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });

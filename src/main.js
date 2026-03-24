@@ -981,11 +981,14 @@ async function handleSubmit(event) {
         body: JSON.stringify(getRegisterPayload(formData)),
       });
 
-      const registrationResponse = await apiFetch("/api/v1/registration", {
+      const registrationResponse = await apiFetch(
+        "/api/v1/trackit/registration",
+        {
         method: "POST",
         headers: {},
         body: JSON.stringify(getProductRegistrationPayload(userResponse.id)),
-      });
+        },
+      );
 
       const uniqueId = registrationResponse.registrations?.[0]?.unique_id;
       if (!uniqueId) {

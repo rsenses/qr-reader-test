@@ -138,6 +138,45 @@ function buildProductFromRegistrations(
   };
 }
 
+async function ensureCampaignsLoaded() {
+  if (state.campaigns.length) return;
+
+  const response = await apiFetch("/api/v1/campaigns");
+  state.campaigns = response.data || [];
+}
+
+async function resolveProductContext(productId) {
+  const normalizedProductId = String(productId);
+  const localProduct = state.products.find(
+    (product) => String(product.id) === normalizedProductId,
+  );
+
+  if (localProduct && state.campaign) {
+    state.productCampaign = state.campaign;
+    return localProduct;
+  }
+
+  await ensureCampaignsLoaded();
+
+  for (const campaign of state.campaigns) {
+    const products = await apiFetch(
+      `/api/v1/products?campaign_id=${encodeURIComponent(campaign.id)}&mode=presencial`,
+    );
+    const matchedProduct = (products || []).find(
+      (product) => String(product.id) === normalizedProductId,
+    );
+
+    if (matchedProduct) {
+      state.campaign = campaign;
+      state.productCampaign = campaign;
+      state.products = products || [];
+      return matchedProduct;
+    }
+  }
+
+  return null;
+}
+
 function getCurrentCampaignId() {
   return (
     state.productCampaign?.id ||
@@ -210,15 +249,11 @@ async function handleRouteChange() {
     }
 
     if (route.name === "campaigns") {
-      const response = await apiFetch("/api/v1/campaigns");
-      state.campaigns = response.data || [];
+      await ensureCampaignsLoaded();
     }
 
     if (route.name === "campaignProducts") {
-      if (!state.campaigns.length) {
-        const campaignsResponse = await apiFetch("/api/v1/campaigns");
-        state.campaigns = campaignsResponse.data || [];
-      }
+      await ensureCampaignsLoaded();
 
       const response = await apiFetch(
         `/api/v1/products?campaign_id=${encodeURIComponent(route.campaignId)}&mode=presencial`,
@@ -235,14 +270,11 @@ async function handleRouteChange() {
       route.name === "productSearch" ||
       route.name === "productStats"
     ) {
+      const fallbackProduct = await resolveProductContext(route.productId);
       const response = await apiFetch(
         `/api/v1/registrations/${route.productId}`,
       );
       const registrations = response.data || [];
-      const fallbackProduct = state.products.find(
-        (product) => String(product.id) === String(route.productId),
-      );
-      state.productCampaign = state.campaign || state.productCampaign;
       state.product = buildProductFromRegistrations(
         route.productId,
         registrations,
@@ -938,15 +970,16 @@ async function handleClick(event) {
   if (!action) return;
 
   if (action === "validate-attendee") {
+    const attemptedAttendee =
+      state.searchResults.find(
+        (entry) => entry.qrCode === actionEl.dataset.qrcode,
+      ) ||
+      state.product?.attendees?.find(
+        (entry) => entry.qrCode === actionEl.dataset.qrcode,
+      ) ||
+      null;
+
     try {
-      const attemptedAttendee =
-        state.searchResults.find(
-          (entry) => entry.qrCode === actionEl.dataset.qrcode,
-        ) ||
-        state.product?.attendees?.find(
-          (entry) => entry.qrCode === actionEl.dataset.qrcode,
-        ) ||
-        null;
       const validation = await fakeValidateQr(actionEl.dataset.qrcode);
       await refreshCurrentProduct();
       if (getRoute().name === "productSearch") {

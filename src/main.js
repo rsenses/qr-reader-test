@@ -29,7 +29,6 @@ const state = {
 const scannerState = {
   html5QrCode: null,
   isRunning: false,
-  isStarting: false,
   track: null,
   torchOn: false,
   currentZoom: null,
@@ -92,7 +91,9 @@ function normalizeMetadata(metadata) {
   if (!metadata || typeof metadata !== "object") return [];
 
   return Object.entries(metadata)
-    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .filter(
+      ([, value]) => value !== null && value !== undefined && value !== "",
+    )
     .map(([key, value]) => ({ key, value: String(value) }));
 }
 
@@ -121,7 +122,11 @@ function normalizeRegistration(registration) {
   };
 }
 
-function buildProductFromRegistrations(productId, registrations, fallbackProduct) {
+function buildProductFromRegistrations(
+  productId,
+  registrations,
+  fallbackProduct,
+) {
   return {
     ...(fallbackProduct || {}),
     id: Number(productId),
@@ -230,7 +235,9 @@ async function handleRouteChange() {
       route.name === "productSearch" ||
       route.name === "productStats"
     ) {
-      const response = await apiFetch(`/api/v1/registrations/${route.productId}`);
+      const response = await apiFetch(
+        `/api/v1/registrations/${route.productId}`,
+      );
       const registrations = response.data || [];
       const fallbackProduct = state.products.find(
         (product) => String(product.id) === String(route.productId),
@@ -258,7 +265,10 @@ async function handleRouteChange() {
   } finally {
     state.loading = false;
     render();
-    if (route.name === "product" && state.product?.id === route.productId) {
+    if (
+      route.name === "product" &&
+      String(state.product?.id) === String(route.productId)
+    ) {
       await setupScanner({ autoStart: true });
       showValidationOverlay();
     }
@@ -471,15 +481,19 @@ function renderProductDetail() {
 
           <div class="space-y-3">
              <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
-               <div class="scanner-controls" aria-label="Controles de camara">
-                 <button id="torchBtn" type="button" hidden class="scanner-control scanner-control--primary" aria-label="Linterna">${renderIcon("flash")}</button>
-                 <div class="scanner-zoom-controls">
-                   <button id="zoomOutBtn" type="button" hidden class="scanner-control" aria-label="Alejar zoom">-</button>
-                   <button id="zoomInBtn" type="button" hidden class="scanner-control" aria-label="Acercar zoom">+</button>
-                 </div>
-               </div>
-               <div id="reader" class="reader-frame min-h-[420px] w-full bg-black"></div>
-               <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
+              <div class="scanner-controls" aria-label="Controles de camara">
+                <button id="torchBtn" type="button" hidden class="scanner-control scanner-control--primary" aria-label="Linterna">${renderIcon("flash")}</button>
+                <div class="scanner-zoom-controls">
+                  <button id="zoomOutBtn" type="button" hidden class="scanner-control" aria-label="Alejar zoom">-</button>
+                  <button id="zoomInBtn" type="button" hidden class="scanner-control" aria-label="Acercar zoom">+</button>
+                </div>
+              </div>
+                <div id="scannerLoading" class="scanner-loading" aria-live="polite">
+                  <div class="scanner-loading__spinner"></div>
+                  <p id="scannerLoadingText" class="scanner-loading__text">Abriendo camara...</p>
+                </div>
+                <div id="reader" class="reader-frame min-h-[420px] w-full bg-black"></div>
+                <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
                  <div class="scan-overlay-card">
                    <div id="scanOverlayIcon" class="scan-overlay-icon">✓</div>
                    <div id="scanOverlayTitle" class="scan-overlay-title">Verificado correctamente</div>
@@ -1159,25 +1173,17 @@ async function setupScanner({ autoStart = false } = {}) {
 }
 
 async function autoStartScanner() {
-  if (scannerState.isRunning || scannerState.isStarting || !scannerState.html5QrCode)
-    return;
+  if (scannerState.isRunning || !scannerState.html5QrCode) return;
 
-  scannerState.isStarting = true;
+  showScannerLoading("Abriendo camara...");
   try {
-    await waitForReader();
     await startScanner();
   } catch (error) {
     console.error(error);
-    try {
-      await recreateScanner();
-      await waitForReader();
-      await startScanner();
-    } catch (retryError) {
-      console.error(retryError);
-      setStatus("no se pudo abrir la camara");
-    }
-  } finally {
-    scannerState.isStarting = false;
+    hideScannerLoading();
+    setStatus(
+      "pulsa iniciar camara si el navegador no la abre automaticamente",
+    );
   }
 }
 
@@ -1223,6 +1229,11 @@ function bindScannerControls() {
 function setStatus(text) {
   const statusEl = document.getElementById("status");
   if (statusEl) statusEl.textContent = `Estado: ${text}`;
+
+  const loadingTextEl = document.getElementById("scannerLoadingText");
+  if (loadingTextEl && text === "pidiendo acceso a camara...") {
+    loadingTextEl.textContent = "Abriendo camara...";
+  }
 }
 
 function setResult(text) {
@@ -1389,51 +1400,40 @@ async function startScanner() {
   if (scannerState.isRunning || !scannerState.html5QrCode) return;
 
   setStatus("pidiendo acceso a camara...");
-  const scannerConfig = {
-    fps: 12,
-    qrbox: (viewfinderWidth, viewfinderHeight) => {
-      const edge = Math.floor(
-        Math.min(viewfinderWidth, viewfinderHeight) * 0.72,
-      );
-      return { width: edge, height: edge };
-    },
-    aspectRatio: 1.3333333,
-    disableFlip: true,
-    formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-    videoConstraints: {
-      facingMode: "environment",
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-    },
-  };
-
-  try {
-    const cameras = await Html5Qrcode.getCameras();
-    if (!cameras || cameras.length === 0) {
-      throw new Error("No se han encontrado camaras");
-    }
-
-    const backCamera =
-      cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
-      cameras[cameras.length - 1];
-
-    await scannerState.html5QrCode.start(
-      { deviceId: { exact: backCamera.id } },
-      scannerConfig,
-      onScanSuccess,
-      onScanFailure,
-    );
-  } catch (primaryError) {
-    await recreateScanner();
-    await scannerState.html5QrCode.start(
-      { facingMode: "environment" },
-      scannerConfig,
-      onScanSuccess,
-      onScanFailure,
-    );
+  const cameras = await Html5Qrcode.getCameras();
+  if (!cameras || cameras.length === 0) {
+    throw new Error("No se han encontrado camaras");
   }
 
+  const backCamera =
+    cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
+    cameras[cameras.length - 1];
+
+  await scannerState.html5QrCode.start(
+    { deviceId: { exact: backCamera.id } },
+    {
+      fps: 12,
+      qrbox: (viewfinderWidth, viewfinderHeight) => {
+        const edge = Math.floor(
+          Math.min(viewfinderWidth, viewfinderHeight) * 0.72,
+        );
+        return { width: edge, height: edge };
+      },
+      aspectRatio: 1.3333333,
+      disableFlip: true,
+      formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+      videoConstraints: {
+        facingMode: "environment",
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    },
+    onScanSuccess,
+    onScanFailure,
+  );
+
   scannerState.isRunning = true;
+  hideScannerLoading();
   setStatus("escaneando");
   await setupTrackControls();
 }
@@ -1451,7 +1451,6 @@ async function stopScanner() {
   await scannerState.html5QrCode.clear();
 
   scannerState.isRunning = false;
-  scannerState.isStarting = false;
   scannerState.track = null;
   scannerState.torchOn = false;
   scannerState.currentZoom = null;
@@ -1470,30 +1469,18 @@ async function stopScanner() {
   setStatus("camara parada");
 }
 
-function nextFrame() {
-  return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+function showScannerLoading(text = "Abriendo camara...") {
+  const loadingEl = document.getElementById("scannerLoading");
+  const loadingTextEl = document.getElementById("scannerLoadingText");
+  if (!loadingEl) return;
+  loadingEl.classList.remove("hidden");
+  if (loadingTextEl) loadingTextEl.textContent = text;
 }
 
-async function waitForReader() {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    const readerEl = document.getElementById("reader");
-    if (readerEl) return readerEl;
-    await nextFrame();
-  }
-
-  throw new Error("No se encontro el contenedor del escaner");
-}
-
-async function recreateScanner() {
-  if (scannerState.html5QrCode) {
-    try {
-      await scannerState.html5QrCode.clear();
-    } catch {}
-  }
-
-  await waitForReader();
-  scannerState.html5QrCode = new Html5Qrcode("reader");
-  scannerState.boundProductId = state.product?.id ?? null;
+function hideScannerLoading() {
+  const loadingEl = document.getElementById("scannerLoading");
+  if (!loadingEl) return;
+  loadingEl.classList.add("hidden");
 }
 
 async function destroyScanner() {
@@ -1513,7 +1500,6 @@ async function destroyScanner() {
 
   scannerState.html5QrCode = null;
   scannerState.boundProductId = null;
-  scannerState.isStarting = false;
 }
 
 function escapeHtml(value) {

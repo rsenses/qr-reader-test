@@ -1164,7 +1164,7 @@ async function handleSubmit(event) {
         throw new Error("No se pudo obtener el identificador de registro.");
       }
 
-      const validation = await fakeValidateQr(uniqueId);
+      const validation = await validateQr(uniqueId);
       await refreshCurrentProduct();
 
       state.registerError = null;
@@ -1211,7 +1211,7 @@ async function handleClick(event) {
       null;
 
     try {
-      const validation = await fakeValidateQr(actionEl.dataset.qrcode);
+      const validation = await validateQr(actionEl.dataset.qrcode);
       await refreshCurrentProduct();
       if (getRoute().name === "productSearch") {
         state.searchValidation = {
@@ -1356,7 +1356,7 @@ function normalizeSearch(value) {
     .replaceAll("ñ", "n");
 }
 
-async function fakeValidateQr(decodedText) {
+async function validateQr(decodedText) {
   const campaignId = getCurrentCampaignId();
   const response = await apiFetch(
     `/api/v1/verify/${encodeURIComponent(decodedText)}?campaign_id=${encodeURIComponent(campaignId)}`,
@@ -1547,7 +1547,7 @@ async function handleScanResult(decodedText) {
     setResult(decodedText);
     setStatus("verificando...");
 
-    const validation = await fakeValidateQr(decodedText);
+    const validation = await validateQr(decodedText);
 
     if (validation.ok) {
       await refreshCurrentProduct();

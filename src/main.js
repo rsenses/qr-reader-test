@@ -268,12 +268,13 @@ async function handleRouteChange() {
     if (
       route.name === "product" ||
       route.name === "productSearch" ||
-      route.name === "productStats"
+      route.name === "productStats" ||
+      route.name === "register"
     ) {
       const fallbackProduct = await resolveProductContext(route.productId);
-      const response = await apiFetch(
-        `/api/v1/registrations/${route.productId}`,
-      );
+      const response = route.name === "register"
+        ? { data: [] }
+        : await apiFetch(`/api/v1/registrations/${route.productId}`);
       const registrations = response.data || [];
       state.product = buildProductFromRegistrations(
         route.productId,
@@ -310,8 +311,10 @@ async function handleRouteChange() {
 function getRoute() {
   const hash = window.location.hash.replace(/^#/, "") || "/campaigns";
 
-  if (hash === "/register") return { name: "register" };
   if (hash === "/campaigns") return { name: "campaigns" };
+
+  const registerMatch = hash.match(/^\/register\/([^/]+)$/);
+  if (registerMatch) return { name: "register", productId: registerMatch[1] };
 
   const campaignMatch = hash.match(/^\/campaigns\/([^/]+)$/);
   if (campaignMatch)
@@ -398,19 +401,23 @@ function renderRegister() {
           <h2 class="section-title font-heading text-2xl text-slate-900">Nuevo registro</h2>
           <p class="mt-1 text-sm text-slate-500">Formulario simple, sin metadatos.</p>
         </div>
-        ${state.product ? `<a href="#/products/${state.product.id}" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Volver</a>` : `<a href="#/campaigns" class="rounded-xl border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Campanas</a>`}
       </div>
 
       ${state.registerError ? `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(state.registerError)}</div>` : ""}
-      ${state.registerMessage ? `<div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700">${escapeHtml(state.registerMessage)}</div>` : ""}
+      ${state.registerMessage ? `<div class="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">${escapeHtml(state.registerMessage)}</div>` : ""}
 
       <form id="registerForm" class="mt-6 grid gap-4">
-        ${renderField("name", "Nombre completo")}
+        ${renderField("name", "Nombre")}
+        ${renderField("last_name", "Apellidos")}
         ${renderField("email", "Email", "email")}
-        ${renderField("phone", "Telefono")}
-        ${renderField("company", "Empresa")}
-        ${renderField("position", "Cargo")}
-        ${renderField("registrationType", "Tipo de inscripcion")}
+        ${renderField("phone", "Telefono", "text", false)}
+        ${renderField("company", "Empresa", "text", false)}
+        ${renderField("position", "Cargo", "text", false)}
+        ${renderField("tax_id", "DNI / NIF", "text", false)}
+        <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <input name="advertising" type="checkbox" value="1" checked class="h-4 w-4 rounded border-slate-300" />
+          <span class="text-sm font-medium text-slate-700">Acepta comunicaciones comerciales</span>
+        </label>
         <button class="rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white">Registrar</button>
       </form>
     </section>
@@ -840,12 +847,12 @@ function renderAttendeeRow(attendee) {
   `;
 }
 
-function renderField(name, label, type = "text") {
+function renderField(name, label, type = "text", required = true) {
   const fieldId = `field-${name}`;
   return `
     <label class="block">
       <span class="mb-2 block text-sm font-semibold text-slate-700">${label}</span>
-      <input id="${fieldId}" name="${name}" type="${type}" autocomplete="off" required class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
+      <input id="${fieldId}" name="${name}" type="${type}" autocomplete="off" ${required ? "required" : ""} class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
     </label>
   `;
 }
@@ -881,7 +888,7 @@ function renderAppNav(route) {
       icon: renderIcon("stats"),
     },
     {
-      href: "#/register",
+      href: `#/register/${state.product.id}`,
       key: "register",
       label: "Alta",
       icon: renderIcon("plus"),
@@ -932,6 +939,28 @@ function emptyState(message) {
   return `<section class="rounded-[32px] border border-dashed border-slate-300 bg-white/70 p-10 text-center text-slate-600">${escapeHtml(message)}</section>`;
 }
 
+function getRegisterPayload(formData) {
+  return {
+    advertising: formData.advertising ? 1 : 0,
+    company: formData.company,
+    email: formData.email,
+    last_name: formData.last_name,
+    name: formData.name,
+    phone: formData.phone,
+    position: formData.position,
+    tax_id: formData.tax_id,
+  };
+}
+
+function getProductRegistrationPayload(userId) {
+  return {
+    metadata: {},
+    products: [Number(state.product.id)],
+    promo: "",
+    user_id: userId,
+  };
+}
+
 async function handleSubmit(event) {
   const form = event.target;
 
@@ -942,14 +971,44 @@ async function handleSubmit(event) {
     const formData = Object.fromEntries(new FormData(form).entries());
 
     try {
-      const response = await apiFetch("/api/v1/register/", {
+      if (!state.product?.id) {
+        throw new Error("No hay un producto seleccionado para registrar.");
+      }
+
+      const userResponse = await apiFetch("/api/v1/register", {
         method: "POST",
         headers: {},
-        body: JSON.stringify(formData),
+        body: JSON.stringify(getRegisterPayload(formData)),
       });
+
+      const registrationResponse = await apiFetch("/api/v1/registration", {
+        method: "POST",
+        headers: {},
+        body: JSON.stringify(getProductRegistrationPayload(userResponse.id)),
+      });
+
+      const uniqueId = registrationResponse.registrations?.[0]?.unique_id;
+      if (!uniqueId) {
+        throw new Error("No se pudo obtener el identificador de registro.");
+      }
+
+      const validation = await fakeValidateQr(uniqueId);
+      await refreshCurrentProduct();
+
       state.registerError = null;
-      state.registerMessage = `${response.message}: ${response.user.name}`;
+      state.lastValidation = {
+        ok: true,
+        message: validation.title,
+        attendee: validation.attendee,
+      };
+      state.pendingOverlay = {
+        type: "success",
+        title: validation.title,
+        subtitle: validation.subtitle,
+      };
+      state.registerMessage = `Registrado y validado: ${validation.attendee.name}`;
       render();
+      showValidationOverlay();
       form.reset();
     } catch (error) {
       state.registerMessage = null;

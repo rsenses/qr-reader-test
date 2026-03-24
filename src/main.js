@@ -451,32 +451,38 @@ function renderProductDetail() {
     return emptyState("No encontramos el producto solicitado.");
   }
 
+  const productBackHref = state.productCampaign?.id
+    ? `#/campaigns/${state.productCampaign.id}`
+    : "#/campaigns";
+  const productCampaignName = state.productCampaign?.name || "Campaña";
+
   return `
     <section class="space-y-4">
       <div class="flex items-center justify-between gap-3 px-1">
-        <a href="#/campaigns/${state.productCampaign.id}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">← Productos</a>
+        <a href="${productBackHref}" class="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">← Productos</a>
         <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Escanear</span>
       </div>
 
       <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-sm sm:p-4">
           <div class="mb-3">
             <h2 class="section-title font-heading text-2xl text-slate-900">${escapeHtml(state.product.name)}</h2>
-            <p class="text-sm text-slate-500">${escapeHtml(state.productCampaign.name)}</p>
+            <p class="text-sm text-slate-500">${escapeHtml(productCampaignName)}</p>
           </div>
 
           <div class="space-y-3">
-            <div class="controls flex flex-wrap gap-3 px-1">
-                <button id="torchBtn" type="button" hidden class="rounded-2xl bg-[color:var(--accent)] px-4 py-3 text-sm font-semibold text-white">Linterna</button>
-               <button id="zoomOutBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">-</button>
-               <button id="zoomInBtn" type="button" hidden class="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700">+</button>
-            </div>
-
              <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
+               <div class="scanner-controls" aria-label="Controles de camara">
+                 <button id="torchBtn" type="button" hidden class="scanner-control scanner-control--primary" aria-label="Linterna">${renderIcon("flash")}</button>
+                 <div class="scanner-zoom-controls">
+                   <button id="zoomOutBtn" type="button" hidden class="scanner-control" aria-label="Alejar zoom">-</button>
+                   <button id="zoomInBtn" type="button" hidden class="scanner-control" aria-label="Acercar zoom">+</button>
+                 </div>
+               </div>
                <div id="reader" class="reader-frame min-h-[420px] w-full bg-black"></div>
-              <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
-                <div class="scan-overlay-card">
-                  <div id="scanOverlayIcon" class="scan-overlay-icon">✓</div>
-                  <div id="scanOverlayTitle" class="scan-overlay-title">Verificado correctamente</div>
+               <div id="scanOverlay" class="scan-overlay hidden" aria-live="polite">
+                 <div class="scan-overlay-card">
+                   <div id="scanOverlayIcon" class="scan-overlay-icon">✓</div>
+                   <div id="scanOverlayTitle" class="scan-overlay-title">Verificado correctamente</div>
                   <div id="scanOverlaySubtitle" class="scan-overlay-subtitle">QR leido y validado</div>
                 </div>
               </div>
@@ -865,6 +871,8 @@ function renderIcon(name) {
     stats:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h16"/><path d="M7 16v-4"/><path d="M12 16V8"/><path d="M17 16v-7"/></svg>',
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"/><path d="M5 12h14"/></svg>',
+    flash:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 6 13h5l-1 9 7-11h-5l1-9Z"/></svg>',
     close:
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>',
     shield:
@@ -1340,6 +1348,8 @@ async function setupTrackControls() {
 
   if (capabilities && "torch" in capabilities && torchBtn) {
     torchBtn.hidden = false;
+    torchBtn.innerHTML = renderIcon("flash");
+    torchBtn.classList.toggle("is-active", scannerState.torchOn);
   }
 
   if (capabilities && capabilities.zoom && zoomInBtn && zoomOutBtn) {
@@ -1356,8 +1366,10 @@ async function setTorch(enabled) {
   await scannerState.track.applyConstraints({ advanced: [{ torch: enabled }] });
   scannerState.torchOn = enabled;
   const torchBtn = document.getElementById("torchBtn");
-  if (torchBtn)
-    torchBtn.textContent = scannerState.torchOn ? "Linterna off" : "Linterna";
+  if (torchBtn) {
+    torchBtn.innerHTML = renderIcon("flash");
+    torchBtn.classList.toggle("is-active", scannerState.torchOn);
+  }
 }
 
 async function setZoom(nextZoom) {

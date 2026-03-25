@@ -239,23 +239,15 @@ describe("getRegisterPayload", () => {
     expect(
       getRegisterPayload({
         advertising: "1",
-        company: "Acme",
         email: "ana@example.com",
         last_name: "Lopez",
         name: "Ana",
-        phone: "123",
-        position: "CEO",
-        tax_id: "12345678A",
       }),
     ).toEqual({
       advertising: 1,
-      company: "Acme",
       email: "ana@example.com",
       last_name: "Lopez",
       name: "Ana",
-      phone: "123",
-      position: "CEO",
-      tax_id: "12345678A",
     });
   });
 
@@ -267,7 +259,7 @@ describe("getRegisterPayload", () => {
 describe("buildProductRegistrationPayload", () => {
   it("builds the registration payload from product and user ids", () => {
     expect(buildProductRegistrationPayload("9", 17)).toEqual({
-      metadata: {},
+      metadata: { origen: "in situ" },
       products: [9],
       promo: "",
       user_id: 17,
@@ -276,7 +268,7 @@ describe("buildProductRegistrationPayload", () => {
 
   it("builds the registration payload for multiple products", () => {
     expect(buildProductRegistrationPayload(["9", 10], 17)).toEqual({
-      metadata: {},
+      metadata: { origen: "in situ" },
       products: [9, 10],
       promo: "",
       user_id: 17,

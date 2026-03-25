@@ -93,13 +93,9 @@ export function getProductStats(attendees) {
 export function getRegisterPayload(formData) {
   return {
     advertising: formData.advertising ? 1 : 0,
-    company: formData.company,
     email: formData.email,
     last_name: formData.last_name,
     name: formData.name,
-    phone: formData.phone,
-    position: formData.position,
-    tax_id: formData.tax_id,
   };
 }
 
@@ -109,7 +105,9 @@ export function buildProductRegistrationPayload(productIdOrIds, userId) {
     : [Number(productIdOrIds)];
 
   return {
-    metadata: {},
+    metadata: {
+      origen: "in situ",
+    },
     products,
     promo: "",
     user_id: userId,

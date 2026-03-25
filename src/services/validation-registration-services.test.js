@@ -80,13 +80,9 @@ describe("registration-service", () => {
 
     await registerUser(apiFetch, {
       advertising: "1",
-      company: "Acme",
       email: "ana@example.com",
       last_name: "Lopez",
       name: "Ana",
-      phone: "123",
-      position: "CEO",
-      tax_id: "12345678A",
     });
 
     expect(apiFetch).toHaveBeenCalledWith("/api/v1/register", {
@@ -94,13 +90,9 @@ describe("registration-service", () => {
       headers: {},
       body: JSON.stringify({
         advertising: 1,
-        company: "Acme",
         email: "ana@example.com",
         last_name: "Lopez",
         name: "Ana",
-        phone: "123",
-        position: "CEO",
-        tax_id: "12345678A",
       }),
     });
   });
@@ -114,7 +106,7 @@ describe("registration-service", () => {
       method: "POST",
       headers: {},
       body: JSON.stringify({
-        metadata: {},
+        metadata: { origen: "in situ" },
         products: [7],
         promo: "",
         user_id: 12,
@@ -131,7 +123,7 @@ describe("registration-service", () => {
       method: "POST",
       headers: {},
       body: JSON.stringify({
-        metadata: {},
+        metadata: { origen: "in situ" },
         products: [7, 8],
         promo: "",
         user_id: 12,

@@ -40,7 +40,7 @@ describe("login-flow", () => {
 
     expect(state.loginError).toBeNull();
     expect(state.token).toBe("new-token");
-    expect(resetSessionState).toHaveBeenCalled();
+    expect(resetSessionState).toHaveBeenCalledWith(state);
 
     applyLoginError(state, "Credenciales invalidas");
     expect(state.loginError).toBe("Credenciales invalidas");

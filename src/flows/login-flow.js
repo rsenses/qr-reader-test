@@ -15,7 +15,7 @@ export async function submitLogin(apiFetch, formData, extractAuthToken) {
 
 export function applyLoginSuccess(state, token, { persistToken, resetSessionState }) {
   state.loginError = null;
-  resetSessionState();
+  resetSessionState(state);
   state.token = persistToken(token);
 }
 

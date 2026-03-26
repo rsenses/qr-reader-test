@@ -239,13 +239,17 @@ function showCurrentPendingScannerOverlay() {
 }
 
 function renderPageLoading(route) {
-  if (route.name === "campaigns" || route.name === "campaignProducts") {
+  const renderHeaderSkeleton = () => `
+    <div class="mb-4 flex items-center justify-between gap-3 px-1">
+      <div class="skeleton h-[1.25rem] w-28 rounded-full"></div>
+      <div class="skeleton h-[1.55rem] w-28 rounded-full"></div>
+    </div>
+  `;
+
+  if (route.name === "campaigns") {
     return `
-      <section class="space-y-4">
-        <div class="space-y-2">
-          <div class="skeleton h-4 w-24 rounded-full"></div>
-          <div class="skeleton h-8 w-52 rounded-full"></div>
-        </div>
+      <section>
+        ${renderHeaderSkeleton()}
         <div class="grid gap-4 sm:grid-cols-2">
           ${Array.from({ length: 4 }, () => `
             <article class="overflow-hidden rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] shadow-[var(--shadow-soft)]">
@@ -261,13 +265,30 @@ function renderPageLoading(route) {
     `;
   }
 
+  if (route.name === "campaignProducts") {
+    return `
+      <section>
+        ${renderHeaderSkeleton()}
+        <article class="mt-4 rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
+          <div class="space-y-4">
+            <div class="space-y-3">
+              ${Array.from({ length: 4 }, () => `
+                <div class="rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-3)] p-4">
+                  <div class="skeleton h-6 w-3/5 rounded-full"></div>
+                  <div class="mt-2 skeleton h-4 w-24 rounded-full"></div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </article>
+      </section>
+    `;
+  }
+
   if (route.name === "product") {
     return `
       <section class="space-y-4">
-        <div class="space-y-2">
-          <div class="skeleton h-4 w-28 rounded-full"></div>
-          <div class="skeleton h-8 w-44 rounded-full"></div>
-        </div>
+        ${renderHeaderSkeleton()}
         <article class="rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--shadow-soft)] sm:p-4">
           <div class="space-y-4">
             <div class="skeleton h-[26rem] w-full rounded-[1.75rem]"></div>
@@ -288,10 +309,7 @@ function renderPageLoading(route) {
   if (route.name === "register") {
     return `
       <section class="space-y-4">
-        <div class="space-y-2">
-          <div class="skeleton h-4 w-28 rounded-full"></div>
-          <div class="skeleton h-8 w-40 rounded-full"></div>
-        </div>
+        ${renderHeaderSkeleton()}
         <article class="rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
           <div class="space-y-4">
             <div class="skeleton h-14 w-full rounded-[0.9rem]"></div>
@@ -310,10 +328,7 @@ function renderPageLoading(route) {
 
   return `
     <section class="space-y-4">
-      <div class="space-y-2">
-        <div class="skeleton h-4 w-28 rounded-full"></div>
-        <div class="skeleton h-8 w-44 rounded-full"></div>
-      </div>
+      ${renderHeaderSkeleton()}
       <article class="rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-5 shadow-[var(--shadow-soft)] sm:p-6">
         <div class="space-y-4">
           <div class="skeleton h-14 w-full rounded-[0.9rem]"></div>

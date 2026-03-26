@@ -14,7 +14,7 @@ export function renderCampaignsPage({ campaigns, buildSiteStorageUrl }) {
 
   return `
     <section>
-      <div class="mb-4">${renderSectionHeader({ title: "Campañas activas", className: "" })}</div>
+      <div class="mb-4">${renderSectionHeader({ badgeLabel: "Campañas", badgeClassName: "max-w-full justify-end text-right", className: "" })}</div>
       <div class="grid gap-4 sm:grid-cols-2">
         ${campaigns
           .map(

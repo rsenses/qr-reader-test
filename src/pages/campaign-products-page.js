@@ -10,8 +10,7 @@ export function renderCampaignProductsPage({ campaign, products }) {
   }
 
   const content = `
-     <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">${escapeHtml(campaign.name)}</h2>
-    <div class="mt-4 grid gap-3">
+    <div class="grid gap-3">
       ${products
         .map(
           (product) => `
@@ -27,7 +26,7 @@ export function renderCampaignProductsPage({ campaign, products }) {
 
   return `
     <section>
-      ${renderSectionHeader({ backHref: "#/campaigns", backLabel: "← Campañas", className: "" })}
+      ${renderSectionHeader({ backHref: "#/campaigns", backLabel: "← Campañas", badgeLabel: campaign.name, className: "" })}
       ${renderCard(content, { className: "mt-4 rounded-2xl p-5 sm:p-6" })}
     </section>
   `;

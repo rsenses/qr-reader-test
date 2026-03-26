@@ -32,17 +32,19 @@ describe("login-flow", () => {
   });
 
   it("applies login success and error state", () => {
-    const state = { loginError: "bad", token: "old" };
+    const state = { loginError: "bad", loginEmail: "ana@example.com", token: "old" };
     const persistToken = vi.fn().mockReturnValue("new-token");
     const resetSessionState = vi.fn();
 
     applyLoginSuccess(state, "new-token", { persistToken, resetSessionState });
 
     expect(state.loginError).toBeNull();
+    expect(state.loginEmail).toBe("");
     expect(state.token).toBe("new-token");
     expect(resetSessionState).toHaveBeenCalledWith(state);
 
-    applyLoginError(state, "Credenciales invalidas");
+    applyLoginError(state, "Credenciales invalidas", "ana@example.com");
     expect(state.loginError).toBe("Credenciales invalidas");
+    expect(state.loginEmail).toBe("ana@example.com");
   });
 });

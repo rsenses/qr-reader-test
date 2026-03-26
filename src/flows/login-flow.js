@@ -15,10 +15,12 @@ export async function submitLogin(apiFetch, formData, extractAuthToken) {
 
 export function applyLoginSuccess(state, token, { persistToken, resetSessionState }) {
   state.loginError = null;
+  state.loginEmail = "";
   resetSessionState(state);
   state.token = persistToken(token);
 }
 
-export function applyLoginError(state, errorMessage) {
+export function applyLoginError(state, errorMessage, email = "") {
   state.loginError = errorMessage;
+  state.loginEmail = email;
 }

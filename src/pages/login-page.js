@@ -1,7 +1,8 @@
+import { escapeAttribute } from "../lib/domain-utils";
 import { showInfoNotification } from "../notifications/notifications-service";
 import { renderIcon } from "./page-helpers";
 
-export function renderLoginPage({ loginError }) {
+export function renderLoginPage({ loginError, email = "" }) {
   return `
     <section class="flex flex-1 items-center">
       <article class="app-card w-full rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -16,7 +17,7 @@ export function renderLoginPage({ loginError }) {
         <form id="loginForm" class="mt-6 space-y-4">
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700">Email</span>
-            <input id="login-email" type="email" name="email" autocomplete="username email" required class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
+            <input id="login-email" type="email" name="email" value="${escapeAttribute(email)}" autocomplete="username email" required class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
           </label>
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700">Password</span>

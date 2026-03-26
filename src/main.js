@@ -93,6 +93,7 @@ const state = {
   pendingOverlay: null,
   searchValidation: null,
   loginError: null,
+  loginEmail: "",
   registerError: null,
   updateAvailable: false,
 };
@@ -479,7 +480,7 @@ function renderPage(route) {
   }
 
   if (route.name === "login") {
-    return renderLoginPage({ loginError: state.loginError });
+    return renderLoginPage({ loginError: state.loginError, email: state.loginEmail });
   }
 
   if (route.name === "register") {
@@ -550,7 +551,7 @@ async function handleSubmit(event) {
       applyLoginSuccess(state, token, { persistToken, resetSessionState });
       window.location.hash = "#/campaigns";
     } catch (error) {
-      applyLoginError(state, error.message);
+      applyLoginError(state, error.message, String(formData.email || ""));
       render();
     }
 

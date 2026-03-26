@@ -1,9 +1,10 @@
 import { escapeHtml } from "../lib/domain-utils";
+import { inlineAlertClass } from "../pages/page-helpers";
 
 function renderInlineError(message) {
   if (!message) return "";
 
-  return `<div class="ui-inline-alert mt-4">${escapeHtml(message)}</div>`;
+  return `<div class="${inlineAlertClass} mt-4">${escapeHtml(message)}</div>`;
 }
 
 export function showResultNotification(notification, deps = {}) {
@@ -77,7 +78,7 @@ export function showInfoNotification(notification, deps = {}) {
 
   if (notification.channel === "page-loading") {
     return `
-      <section class="ui-empty-state flex min-h-[50vh] items-center justify-center p-8 shadow-sm">
+      <section class="rounded-[32px] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-8 text-center text-[color:var(--text-base)] shadow-[var(--shadow-soft)] flex min-h-[50vh] items-center justify-center">
         <div>
           <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
           <p class="mt-4 text-sm font-medium text-slate-600">Cargando datos...</p>

@@ -31,7 +31,7 @@ export function renderProductDetailPage({ product, productCampaign, lastValidati
     <section class="space-y-4">
       ${renderProductSectionHeader({ product, productCampaign })}
 
-      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-3 shadow-sm sm:p-4">
+      <article class="app-card rounded-[28px] p-3 sm:p-4">
           <div class="space-y-3">
              <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
               <div class="scanner-controls" aria-label="Controles de camara">

@@ -1,5 +1,14 @@
 import { escapeHtml, getProductStats } from "../lib/domain-utils";
-import { emptyState, renderInlineNote, renderProductSectionHeader } from "./page-helpers";
+import {
+  emptyState,
+  metricCardBaseClass,
+  metricCardLabelClass,
+  progressBarClass,
+  progressTrackClass,
+  renderInlineNote,
+  renderProductSectionHeader,
+  simpleCardClass,
+} from "./page-helpers";
 
 export function renderProductStatsPage({ product, productCampaign }) {
   if (!product) {
@@ -12,17 +21,17 @@ export function renderProductStatsPage({ product, productCampaign }) {
     <section class="space-y-4">
       ${renderProductSectionHeader({ product, productCampaign })}
 
-      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-        <h2 class="section-title font-heading text-2xl text-slate-900">Estadisticas</h2>
+      <article class="app-card rounded-[28px] p-4 sm:p-5">
+        <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Estadisticas</h2>
 
-        <div class="stats-grid mt-4 grid grid-cols-2 gap-3">
-          <div class="ui-metric-card ui-metric-card--neutral">
-            <p class="ui-metric-card__label">Inscritos</p>
-            <p class="stats-number mt-2 text-3xl font-bold text-slate-900">${stats.totalPaidOrVerified}</p>
+        <div class="mt-4 grid grid-cols-2 gap-3 max-[390px]:grid-cols-1">
+          <div class="${metricCardBaseClass} bg-[color:var(--surface-soft)]">
+            <p class="${metricCardLabelClass} text-[color:var(--text-muted)]">Inscritos</p>
+            <p class="mt-2 text-3xl font-bold text-slate-900 max-[390px]:text-[2rem] max-[390px]:leading-none">${stats.totalPaidOrVerified}</p>
           </div>
-          <div class="ui-metric-card ui-metric-card--accent">
-            <p class="ui-metric-card__label">Verificados</p>
-            <p class="stats-number mt-2 text-3xl font-bold text-[color:var(--accent-strong)]">${stats.totalVerified}</p>
+          <div class="${metricCardBaseClass} bg-[color:color-mix(in_srgb,var(--accent-faint)_78%,var(--surface-raised))]">
+            <p class="${metricCardLabelClass} text-[color:var(--accent-strong)]">Verificados</p>
+            <p class="mt-2 text-3xl font-bold text-[color:var(--accent-strong)] max-[390px]:text-[2rem] max-[390px]:leading-none">${stats.totalVerified}</p>
           </div>
         </div>
 
@@ -32,7 +41,7 @@ export function renderProductStatsPage({ product, productCampaign }) {
               ? stats.byType
                   .map(
                     (entry) => `
-            <article class="ui-list-card">
+            <article class="${simpleCardClass}">
                <div class="flex items-center justify-between gap-3">
                  <div>
                    <h3 class="font-semibold text-slate-900">${escapeHtml(entry.label)}</h3>
@@ -40,8 +49,8 @@ export function renderProductStatsPage({ product, productCampaign }) {
                  </div>
                  <p class="text-sm font-semibold text-slate-700">${entry.percentage}%</p>
                </div>
-               <div class="ui-progress mt-3 h-3 overflow-hidden rounded-full">
-                 <div class="ui-progress__bar h-full rounded-full" style="width: ${entry.percentage}%"></div>
+               <div class="${progressTrackClass}">
+                 <div class="${progressBarClass}" style="width: ${entry.percentage}%"></div>
                </div>
              </article>
            `,

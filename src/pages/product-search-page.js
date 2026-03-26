@@ -6,6 +6,7 @@ import {
 } from "../lib/domain-utils";
 import {
   emptyState,
+  simpleCardClass,
   renderBadge,
   renderInlineNote,
   renderIcon,
@@ -30,7 +31,7 @@ export function renderSearchResults({ searchQuery, searchResults, hasEnoughChars
   return searchResults
     .map(
       (attendee) => `
-    <article class="ui-list-card">
+    <article class="${simpleCardClass}">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="font-semibold text-slate-900">${escapeHtml(attendee.name)}</h3>
@@ -95,8 +96,8 @@ export function renderProductSearchPage({
     <section class="space-y-4">
       ${renderProductSectionHeader({ product, productCampaign })}
 
-      <article class="app-card rounded-[28px] border border-white/70 bg-white/90 p-4 shadow-sm sm:p-5">
-        <h2 class="section-title font-heading text-2xl text-slate-900">Buscar inscritos</h2>
+      <article class="app-card rounded-[28px] p-4 sm:p-5">
+        <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Buscar inscritos</h2>
 
         <div class="ui-input-shell mt-4 flex items-center gap-2 px-3 py-2">
           <input id="manualSearchInput" value="${escapeAttribute(searchQuery)}" placeholder="Nombre, email o empresa" class="ui-input ui-input--bare min-w-0 flex-1 px-1 py-2" />

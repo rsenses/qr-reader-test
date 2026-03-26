@@ -2,7 +2,7 @@ export function renderUpdateBanner(updateAvailable) {
   if (!updateAvailable) return "";
 
   return `
-    <section class="app-update-banner mb-4 flex items-center justify-between gap-3 rounded-[24px] border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 shadow-sm">
+    <section class="app-update-banner mb-4 flex items-center justify-between gap-3 rounded-[24px] border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 shadow-[var(--shadow-soft)]">
       <div>
         <p class="text-sm font-semibold text-[color:var(--accent-strong)]">Nueva version disponible</p>
         <p class="mt-1 text-xs text-[color:var(--accent-strong)]/80">Actualiza la app para cargar los ultimos cambios.</p>
@@ -52,7 +52,7 @@ export function renderAppNav(route, product, renderIcon) {
 
   return `
     <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Navegacion del producto">
-      <div class="app-bottom-nav relative grid grid-cols-4 gap-2 rounded-[28px] border border-white/70 bg-white/92 p-2 shadow-[0_18px_40px_rgba(15,23,42,0.14)] backdrop-blur">
+      <div class="app-bottom-nav relative grid grid-cols-4 gap-2 rounded-[28px] border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-soft)] backdrop-blur">
         ${items
           .map((item) => {
             const isActive =

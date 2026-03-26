@@ -69,7 +69,7 @@ describe("registration-service submitRegisterFlow", () => {
           refreshCurrentProduct: vi.fn(),
         },
       ),
-    ).rejects.toThrow("No hay un producto seleccionado para registrar.");
+    ).rejects.toThrow("No se ha podido preparar el alta para este producto.");
   });
 
   it("accepts campaign-wide registration with multiple product ids", async () => {

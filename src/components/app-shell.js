@@ -1,3 +1,4 @@
+import { escapeAttribute } from "../lib/html-utils";
 import { renderButton } from "./button";
 
 export function renderUpdateBanner(updateAvailable) {
@@ -66,7 +67,7 @@ export function renderAppNav(route, product, renderIcon) {
               route.name === item.key ||
               (item.key === "product" && route.name === "product");
             return `
-            <a href="${item.href}" aria-label="${item.label}" class="app-nav-item ${item.primary ? "app-nav-item-primary" : ""} ${isActive ? "app-nav-item-active" : ""}">
+            <a href="${escapeAttribute(item.href)}" aria-label="${item.label}" class="app-nav-item ${item.primary ? "app-nav-item-primary" : ""} ${isActive ? "app-nav-item-active" : ""}">
               <span class="app-nav-icon">${item.icon}</span>
               <span class="app-nav-label">${item.label}</span>
             </a>

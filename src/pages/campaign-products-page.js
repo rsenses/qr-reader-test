@@ -1,7 +1,7 @@
 import { renderCard } from "../components/card";
 import { renderEmptyState } from "../components/empty-state";
 import { renderSectionHeader } from "../components/section-header";
-import { escapeHtml } from "../lib/html-utils";
+import { escapeAttribute, escapeHtml } from "../lib/html-utils";
 import { interactiveCardClass } from "./page-helpers";
 
 export function renderCampaignProductsPage({ campaign, products }) {
@@ -15,7 +15,7 @@ export function renderCampaignProductsPage({ campaign, products }) {
       ${products
         .map(
           (product) => `
-        <a href="#/products/${product.id}" class="${interactiveCardClass} block">
+        <a href="#/products/${escapeAttribute(product.id)}" class="${interactiveCardClass} block">
            <h3 class="font-heading text-xl text-slate-900">${escapeHtml(product.name)}</h3>
            <p class="mt-1 text-sm text-slate-500">Ir al escaner</p>
          </a>

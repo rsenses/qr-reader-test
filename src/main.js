@@ -23,6 +23,7 @@ import { renderProductStatsPage } from "./pages/product-stats-page";
 import { renderRegisterPage } from "./pages/register-page";
 import { renderIcon } from "./pages/page-helpers";
 import { registerAppServiceWorker } from "./lib/service-worker-updates";
+import { getDisplayErrorMessage } from "./lib/ui-error";
 import { resolveRouteData } from "./router/route-resolver";
 import {
   applyResolvedRouteState,
@@ -120,7 +121,7 @@ scannerFlow = createScannerFlow({
     showCurrentPendingScannerOverlay();
   },
   onValidationError: (error) => {
-    const subtitle = error.message || "Ha fallado el proceso";
+    const subtitle = getDisplayErrorMessage(error, "Ha fallado el proceso");
     state.lastValidation = null;
     syncLastValidation(state.lastValidation);
     showScannerOverlay("error", "Error de verificacion", subtitle);
@@ -254,7 +255,7 @@ async function handleLoginFormSubmit(form) {
     const token = extractAuthToken(response);
 
     if (!token) {
-      throw new Error("La API no devolvio un token valido.");
+      throw new Error("No se ha podido iniciar sesion. Intentalo de nuevo.");
     }
 
     state.loginError = null;
@@ -263,7 +264,10 @@ async function handleLoginFormSubmit(form) {
     state.token = persistToken(token);
     window.location.hash = "#/campaigns";
   } catch (error) {
-    state.loginError = error.message;
+    state.loginError = getDisplayErrorMessage(
+      error,
+      "No se ha podido iniciar sesion. Intentalo de nuevo.",
+    );
     state.loginEmail = String(formData.email || "");
     render();
   }
@@ -301,7 +305,10 @@ async function handleRegisterFormSubmit(form) {
     showCurrentPendingScannerOverlay();
     form.reset();
   } catch (error) {
-    state.registerError = error.message;
+    state.registerError = getDisplayErrorMessage(
+      error,
+      "No se ha podido completar el alta. Intentalo de nuevo.",
+    );
     render();
   }
 }
@@ -334,7 +341,11 @@ async function handleValidateAttendeeAction(qrCode) {
     showCurrentPendingScannerOverlay();
   } catch (error) {
     if (inSearchRoute()) {
-      applySearchValidationError(state, error.message, attemptedAttendee);
+      applySearchValidationError(
+        state,
+        getDisplayErrorMessage(error, "No se ha podido validar el QR."),
+        attemptedAttendee,
+      );
       return;
     }
 
@@ -342,7 +353,7 @@ async function handleValidateAttendeeAction(qrCode) {
     state.pendingOverlay = {
       type: "error",
       title: "Error de verificacion",
-      subtitle: error.message,
+      subtitle: getDisplayErrorMessage(error, "No se ha podido validar el QR."),
     };
 
     showCurrentPendingScannerOverlay();

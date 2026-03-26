@@ -1,5 +1,5 @@
 import { renderBadge } from "./badge";
-import { escapeHtml } from "../lib/html-utils";
+import { escapeAttribute, escapeHtml } from "../lib/html-utils";
 
 const BACK_LINK_CLASS =
   "inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text-base)] transition-[color,transform] duration-150 active:-translate-x-px active:text-[color:var(--text-strong)] focus-visible:text-[color:var(--text-strong)] focus-visible:-translate-x-px";
@@ -18,7 +18,7 @@ export function renderSectionHeader({
   const topRow = backHref || badgeLabel
     ? `
       <div class="flex items-center justify-between gap-3 px-1">
-        ${backHref ? `<a href="${backHref}" class="${BACK_LINK_CLASS} shrink-0">${escapeHtml(backLabel || "Volver")}</a>` : ""}
+        ${backHref ? `<a href="${escapeAttribute(backHref)}" class="${BACK_LINK_CLASS} shrink-0">${escapeHtml(backLabel || "Volver")}</a>` : ""}
         ${badgeLabel ? renderBadge(badgeLabel, { tone: badgeTone, className: badgeClassName }) : ""}
       </div>
     `

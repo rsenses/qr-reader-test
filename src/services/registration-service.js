@@ -28,7 +28,7 @@ export async function submitRegisterFlow(
   { validateQr, refreshCurrentProduct },
 ) {
   if (!productId && !(Array.isArray(productIds) && productIds.length)) {
-    throw new Error("No hay un producto seleccionado para registrar.");
+    throw new Error("No se ha podido preparar el alta para este producto.");
   }
 
   const { uniqueId } = await registerAttendeeForProduct(apiFetch, {
@@ -55,7 +55,7 @@ export async function registerAttendeeForProduct(
   const uniqueId = extractRegistrationUniqueId(registrationResponse);
 
   if (!uniqueId) {
-    throw new Error("No se pudo obtener el identificador de registro.");
+    throw new Error("No se ha podido completar el alta. Intentalo de nuevo.");
   }
 
   return {

@@ -1,3 +1,5 @@
+import { createUiError, getApiErrorMessage } from "../lib/ui-error";
+
 export function createApiClient({
   baseUrl,
   getToken,
@@ -55,10 +57,23 @@ export function createApiClient({
 
     const normalizedPath = String(path || "").replace(/^\/api\/v1/, "");
 
-    const response = await fetch(`${baseUrl}${normalizedPath}`, {
-      ...requestOptions,
-      headers,
-    });
+    let response;
+
+    try {
+      response = await fetch(`${baseUrl}${normalizedPath}`, {
+        ...requestOptions,
+        cache: requestOptions.cache ?? (!skipAuth ? "no-store" : undefined),
+        headers,
+      });
+    } catch (error) {
+      throw createUiError(
+        "No se ha podido conectar con el servidor. Revisa tu conexion e intentalo de nuevo.",
+        {
+          cause: error,
+          isNetworkError: true,
+        },
+      );
+    }
 
     const data = await parseResponseBody(response);
 
@@ -67,9 +82,14 @@ export function createApiClient({
         await onAuthFailure?.();
       }
 
-      const error = new Error(data.message || "Error inesperado");
-      error.data = data;
-      error.status = response.status;
+      const error = createUiError(
+        getApiErrorMessage({ path, status: response.status }),
+        {
+          data,
+          status: response.status,
+          backendMessage: String(data?.message || "").trim(),
+        },
+      );
       throw error;
     }
 

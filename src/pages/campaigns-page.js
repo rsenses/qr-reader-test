@@ -20,10 +20,10 @@ export function renderCampaignsPage({ campaigns, buildSiteStorageUrl }) {
           .map(
             (campaign) => `
           <article class="${interactiveCardClass} h-full overflow-hidden">
-            <a href="#/campaigns/${campaign.id}" class="flex h-full flex-col">
-               ${campaign.image ? `<img src="${escapeAttribute(buildSiteStorageUrl(campaign.image))}" alt="${escapeHtml(campaign.name)}" class="h-48 w-full object-cover" />` : `<div class="${imagePlaceholderClass}">Sin imagen</div>`}
-               <div class="flex flex-1 flex-col p-4">
-                 <h3 class="font-heading text-xl text-slate-900">${escapeHtml(campaign.name)}</h3>
+            <a href="#/campaigns/${escapeAttribute(campaign.id)}" class="flex h-full flex-col">
+                ${campaign.image ? `<img src="${escapeAttribute(buildSiteStorageUrl(campaign.image))}" alt="${escapeHtml(campaign.name)}" class="h-48 w-full object-cover" />` : `<div class="${imagePlaceholderClass}">Sin imagen</div>`}
+                <div class="flex flex-1 flex-col p-4">
+                  <h3 class="font-heading text-xl text-slate-900">${escapeHtml(campaign.name)}</h3>
                  ${renderButton("Abrir campaña", { tag: "span", variant: "outline", className: "mt-4 inline-flex" })}
                </div>
              </a>

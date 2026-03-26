@@ -1,3 +1,5 @@
+import { logErrorDev } from "../lib/runtime-utils";
+
 export function selectPreferredCamera(cameras = []) {
   return (
     cameras.find((camera) => /back|rear|environment/gi.test(camera.label)) ||
@@ -53,7 +55,7 @@ export function createScannerController({
       try {
         await setTorch(!state.torchOn);
       } catch (error) {
-        console.error(error);
+        logErrorDev(error);
         showStatus("linterna no soportada o no disponible");
       }
     };
@@ -62,7 +64,7 @@ export function createScannerController({
       try {
         await setZoom((state.currentZoom ?? 1) + (state.zoomCaps?.step ?? 0.1));
       } catch (error) {
-        console.error(error);
+        logErrorDev(error);
         showStatus("zoom no soportado");
       }
     };
@@ -71,7 +73,7 @@ export function createScannerController({
       try {
         await setZoom((state.currentZoom ?? 1) - (state.zoomCaps?.step ?? 0.1));
       } catch (error) {
-        console.error(error);
+        logErrorDev(error);
         showStatus("zoom no soportado");
       }
     };
@@ -180,7 +182,7 @@ export function createScannerController({
     try {
       await startScanner();
     } catch (error) {
-      console.error(error);
+      logErrorDev(error);
       hideLoading();
       onAutoStartError();
     }
@@ -222,7 +224,7 @@ export function createScannerController({
       try {
         await stopScanner();
       } catch (error) {
-        console.error(error);
+        logErrorDev(error);
       }
     }
 

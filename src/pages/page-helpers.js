@@ -50,8 +50,6 @@ export function renderResultDetails(attendee) {
   const detailLines = [
     attendee.company ? `<p><strong>Empresa:</strong> ${escapeHtml(attendee.company)}</p>` : "",
     attendee.position ? `<p><strong>Cargo:</strong> ${escapeHtml(attendee.position)}</p>` : "",
-    attendee.phone ? `<p><strong>Telefono:</strong> ${escapeHtml(attendee.phone)}</p>` : "",
-    attendee.taxId ? `<p><strong>DNI / NIF:</strong> ${escapeHtml(attendee.taxId)}</p>` : "",
   ].filter(Boolean);
 
   return `${detailLines.join("")}${renderMetadataLines(attendee.metadata)}`;

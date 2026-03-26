@@ -1,3 +1,5 @@
+import { logErrorDev } from "./runtime-utils";
+
 export function registerAppServiceWorker({ onUpdateAvailable, onReload } = {}) {
   if (!("serviceWorker" in navigator)) return;
 
@@ -20,7 +22,7 @@ export function registerAppServiceWorker({ onUpdateAvailable, onReload } = {}) {
         onReload?.();
       });
     } catch (error) {
-      console.error("No se pudo registrar el service worker", error);
+      logErrorDev("No se pudo registrar el service worker", error);
     }
   });
 }

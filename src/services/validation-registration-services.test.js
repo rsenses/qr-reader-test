@@ -187,6 +187,6 @@ describe("registration-service", () => {
         formData: { advertising: "1", name: "Ana" },
         productId: 3,
       }),
-    ).rejects.toThrow("No se pudo obtener el identificador de registro.");
+    ).rejects.toThrow("No se ha podido completar el alta. Intentalo de nuevo.");
   });
 });

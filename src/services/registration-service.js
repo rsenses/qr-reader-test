@@ -23,6 +23,25 @@ export function extractRegistrationUniqueId(registrationResponse) {
   return registrationResponse.registrations?.[0]?.unique_id || "";
 }
 
+export async function submitRegisterFlow(
+  { apiFetch, formData, productId, productIds },
+  { validateQr, refreshCurrentProduct },
+) {
+  if (!productId && !(Array.isArray(productIds) && productIds.length)) {
+    throw new Error("No hay un producto seleccionado para registrar.");
+  }
+
+  const { uniqueId } = await registerAttendeeForProduct(apiFetch, {
+    formData,
+    productId,
+    productIds,
+  });
+  const validation = await validateQr(uniqueId);
+  await refreshCurrentProduct();
+
+  return { validation };
+}
+
 export async function registerAttendeeForProduct(
   apiFetch,
   { formData, productId, productIds },

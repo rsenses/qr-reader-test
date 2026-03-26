@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { filterAttendees, getSearchResults } from "./search-service";
+import { filterAttendees, getSearchResults, normalizeSearch } from "./search-utils";
 
 const attendees = [
   {
@@ -25,7 +25,16 @@ const attendees = [
   },
 ];
 
-describe("search-service", () => {
+describe("search-utils", () => {
+  it("normalizes case, whitespace, accents and enye", () => {
+    expect(normalizeSearch("  ÁRBoL Ñandú ")).toBe("arbol nandu");
+  });
+
+  it("returns empty string for nullish values", () => {
+    expect(normalizeSearch(null)).toBe("");
+    expect(normalizeSearch(undefined)).toBe("");
+  });
+
   it("filters attendees across normalized fields and metadata", () => {
     expect(filterAttendees(attendees, "lopez")).toEqual([attendees[0]]);
     expect(filterAttendees(attendees, "iñigo")).toEqual([attendees[1]]);

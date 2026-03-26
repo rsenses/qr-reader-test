@@ -1,52 +1,28 @@
 import "./style.css";
 import { extractAuthToken, isAuthFailureStatus } from "./auth/auth-utils";
 import { getStoredToken, persistToken } from "./auth/token-storage";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
+import { renderCampaignProductsPage } from "./pages/campaign-products-page";
+import { renderCampaignsPage } from "./pages/campaigns-page";
+import { renderLoginPage } from "./pages/login-page";
+import { renderAppNav, renderUpdateBanner } from "./components/app-shell";
+import {
+  renderLastValidationCard,
+  renderProductDetailPage,
+} from "./pages/product-detail-page";
 import {
   applySearchInput,
   applySearchValidationError,
   applySearchValidationSuccess,
   clearSearch,
   findAttemptedAttendee,
-  refreshSearchResults,
-} from "./flows/search-flow";
-import {
-  applyLoginError,
-  applyLoginSuccess,
-  submitLogin,
-} from "./flows/login-flow";
-import {
-  applyRegisterError,
-  applyRegisterSuccess,
-  submitRegisterFlow,
-} from "./flows/register-flow";
-import {
-  applyProductValidationError,
-  applyProductValidationSuccess,
-} from "./flows/validation-flow";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
-import { renderCampaignProductsPage } from "./pages/campaign-products-page";
-import { renderCampaignsPage } from "./pages/campaigns-page";
-import { renderLoginPage } from "./pages/login-page";
-import {
-  renderLastValidationCard,
-  renderProductDetailPage,
-} from "./pages/product-detail-page";
-import {
   renderProductSearchPage,
-  renderSearchResults,
-  renderSearchValidationCard,
+  refreshSearchResults,
 } from "./pages/product-search-page";
 import { renderProductStatsPage } from "./pages/product-stats-page";
 import { renderRegisterPage } from "./pages/register-page";
 import { renderIcon } from "./pages/page-helpers";
-import {
-  renderPageLoadingNotification,
-  renderUpdateNotification,
-  showPendingScannerOverlayNotification,
-  syncLastValidationNotification,
-} from "./notifications/notifications-service";
 import { registerAppServiceWorker } from "./lib/service-worker-updates";
-import { renderAppNav, renderUpdateBanner } from "./ui/app-shell";
 import { resolveRouteData } from "./router/route-resolver";
 import {
   applyResolvedRouteState,
@@ -64,13 +40,13 @@ import {
   hideScannerLoading,
   hideScannerOverlay,
   setScannerStatus,
+  showPendingScannerOverlay,
   showScannerLoading,
   showScannerOverlay,
 } from "./scanner/scanner-ui";
+import { createApiClient } from "./services/api-client";
 import { refreshProductData } from "./services/products-service";
-import { registerAttendeeForProduct } from "./services/registration-service";
-import { getSearchResults } from "./services/search-service";
-import { syncLastValidationUI } from "./ui/validation-ui";
+import { submitRegisterFlow } from "./services/registration-service";
 import { validateRegistrationCode } from "./services/validation-service";
 
 const API_BASE_URL = "https://inscripciones.expansion.com/api/v1";
@@ -101,11 +77,12 @@ let serviceWorkerRegistration = null;
 
 let scannerFlow = null;
 
-const searchFeatureDeps = {
-  getSearchResults,
-  renderSearchResults,
-  renderSearchValidationCard,
-};
+const { apiFetch, buildSiteStorageUrl } = createApiClient({
+  baseUrl: API_BASE_URL,
+  getToken: () => state.token,
+  isAuthFailureStatus,
+  onAuthFailure: clearAuthAndRedirect,
+});
 
 const scannerController = createScannerController({
   Html5Qrcode,
@@ -139,21 +116,13 @@ scannerFlow = createScannerFlow({
       title: validation.title,
       subtitle: validation.subtitle,
     };
-    syncLastValidationNotification(
-      state.lastValidation,
-      renderLastValidationCard,
-      syncLastValidationUI,
-    );
-    showPendingScannerOverlay();
+    syncLastValidation(state.lastValidation);
+    showCurrentPendingScannerOverlay();
   },
   onValidationError: (error) => {
     const subtitle = error.message || "Ha fallado el proceso";
     state.lastValidation = null;
-    syncLastValidationNotification(
-      state.lastValidation,
-      renderLastValidationCard,
-      syncLastValidationUI,
-    );
+    syncLastValidation(state.lastValidation);
     showScannerOverlay("error", "Error de verificacion", subtitle);
   },
   showVerifyingStatus: () => showScannerStatus("verificando..."),
@@ -199,11 +168,15 @@ function registerServiceWorker() {
 }
 
 function syncLastValidation(lastValidation) {
-  syncLastValidationNotification(
-    lastValidation,
-    renderLastValidationCard,
-    syncLastValidationUI,
-  );
+  const region = document.getElementById("lastValidationRegion");
+  if (!region) return;
+
+  region.innerHTML = renderLastValidationCard(lastValidation);
+
+  const card = region.firstElementChild;
+  if (card && typeof card.scrollIntoView === "function") {
+    card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
 }
 
 function showScannerStatus(text) {
@@ -222,77 +195,6 @@ async function clearAuthAndRedirect() {
   if (window.location.hash !== "#/login") {
     window.location.hash = "#/login";
   }
-}
-
-async function parseResponseBody(response) {
-  const contentType = response.headers.get("content-type") || "";
-
-  if (contentType.includes("application/json")) {
-    return response.json();
-  }
-
-  const text = await response.text();
-  const normalizedText = text.charCodeAt(0) === 0 ? text.slice(1) : text;
-
-  if (
-    contentType.includes("text/html") ||
-    /^\s*<!doctype html>/i.test(normalizedText) ||
-    /^\s*<html[\s>]/i.test(normalizedText)
-  ) {
-    return {
-      message:
-        response.status === 403
-          ? "Acceso prohibido"
-          : "El servidor devolvio una respuesta HTML inesperada.",
-    };
-  }
-
-  try {
-    return text ? JSON.parse(text) : null;
-  } catch {
-    return { message: text };
-  }
-}
-
-function buildSiteStorageUrl(path) {
-  if (!path) return "";
-  if (/^https?:\/\//.test(path)) return path;
-
-  const origin = new URL(API_BASE_URL).origin;
-  return `${origin}/storage/${String(path).replace(/^\//, "")}`;
-}
-
-async function apiFetch(path, options = {}) {
-  const { skipAuth = false, ...requestOptions } = options;
-  const headers = new Headers(options.headers || {});
-  headers.set("Accept", "application/json");
-  headers.set("Content-Type", "application/json");
-
-  if (!skipAuth && state.token) {
-    headers.set("Authorization", `Bearer ${state.token}`);
-  }
-
-  const normalizedPath = String(path || "").replace(/^\/api\/v1/, "");
-
-  const response = await fetch(`${API_BASE_URL}${normalizedPath}`, {
-    ...requestOptions,
-    headers,
-  });
-
-  const data = await parseResponseBody(response);
-
-  if (!response.ok) {
-    if (!skipAuth && isAuthFailureStatus(response.status)) {
-      await clearAuthAndRedirect();
-    }
-
-    const error = new Error(data.message || "Error inesperado");
-    error.data = data;
-    error.status = response.status;
-    throw error;
-  }
-
-  return data;
 }
 
 async function bootstrap() {
@@ -321,23 +223,48 @@ function getScannerOverlayDeps() {
   };
 }
 
-function showPendingScannerOverlay() {
-  showPendingScannerOverlayNotification(
+function showCurrentPendingScannerOverlay() {
+  showPendingScannerOverlay(
     state.pendingOverlay,
     scannerState,
     getScannerOverlayDeps(),
   );
 }
 
+function renderPageLoading() {
+  return `
+    <section class="rounded-[32px] border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] p-8 text-center text-[color:var(--text-base)] shadow-[var(--shadow-soft)] flex min-h-[50vh] items-center justify-center">
+      <div>
+        <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
+        <p class="mt-4 text-sm font-medium text-slate-600">Cargando datos...</p>
+      </div>
+    </section>
+  `;
+}
+
 async function handleLoginFormSubmit(form) {
   const formData = Object.fromEntries(new FormData(form).entries());
 
   try {
-    const { token } = await submitLogin(apiFetch, formData, extractAuthToken);
-    applyLoginSuccess(state, token, { persistToken, resetSessionState });
+    const response = await apiFetch("/api/v1/login", {
+      method: "POST",
+      skipAuth: true,
+      body: JSON.stringify(formData),
+    });
+    const token = extractAuthToken(response);
+
+    if (!token) {
+      throw new Error("La API no devolvio un token valido.");
+    }
+
+    state.loginError = null;
+    state.loginEmail = "";
+    resetSessionState(state);
+    state.token = persistToken(token);
     window.location.hash = "#/campaigns";
   } catch (error) {
-    applyLoginError(state, error.message, String(formData.email || ""));
+    state.loginError = error.message;
+    state.loginEmail = String(formData.email || "");
     render();
   }
 }
@@ -354,18 +281,27 @@ async function handleRegisterFormSubmit(form) {
         productIds: state.product?.mode === "campaign" ? state.product.productIds : undefined,
       },
       {
-        registerAttendeeForProduct,
         validateQr,
         refreshCurrentProduct,
       },
     );
 
-    applyRegisterSuccess(state, validation);
+    state.registerError = null;
+    state.lastValidation = {
+      ok: true,
+      message: validation.title,
+      attendee: validation.attendee,
+    };
+    state.pendingOverlay = {
+      type: "success",
+      title: validation.title,
+      subtitle: validation.subtitle,
+    };
     render();
-    showPendingScannerOverlay();
+    showCurrentPendingScannerOverlay();
     form.reset();
   } catch (error) {
-    applyRegisterError(state, error.message);
+    state.registerError = error.message;
     render();
   }
 }
@@ -379,25 +315,37 @@ async function handleValidateAttendeeAction(qrCode) {
     await refreshCurrentProduct();
 
     if (inSearchRoute()) {
-      applySearchValidationSuccess(state, validation, { renderSearchValidationCard });
+      applySearchValidationSuccess(state, validation);
       return;
     }
 
-    applyProductValidationSuccess(state, validation, {
-      syncLastValidationUI: syncLastValidation,
-      renderLastValidationCard,
-      showValidationOverlay: showPendingScannerOverlay,
-    });
+    state.lastValidation = {
+      ok: true,
+      message: validation.title,
+      attendee: validation.attendee,
+    };
+    state.pendingOverlay = {
+      type: "success",
+      title: validation.title,
+      subtitle: validation.subtitle,
+    };
+
+    syncLastValidation(state.lastValidation);
+    showCurrentPendingScannerOverlay();
   } catch (error) {
     if (inSearchRoute()) {
-      applySearchValidationError(state, error.message, attemptedAttendee, {
-        renderSearchResults,
-        renderSearchValidationCard,
-      });
+      applySearchValidationError(state, error.message, attemptedAttendee);
       return;
     }
 
-    applyProductValidationError(state, error.message, showPendingScannerOverlay);
+    state.lastValidation = null;
+    state.pendingOverlay = {
+      type: "error",
+      title: "Error de verificacion",
+      subtitle: error.message,
+    };
+
+    showCurrentPendingScannerOverlay();
   }
 }
 
@@ -441,7 +389,7 @@ async function finalizeRouteChange(route) {
     String(state.product?.id) === String(route.productId)
   ) {
     await setupScanner({ product: state.product, autoStart: true });
-    showPendingScannerOverlay();
+    showCurrentPendingScannerOverlay();
   }
 }
 
@@ -479,7 +427,7 @@ function render() {
   const route = getCurrentRoute();
   const page = renderPage(route);
   const appNav = renderAppNav(route, state.product, renderIcon);
-  const updateBanner = renderUpdateNotification(state.updateAvailable, renderUpdateBanner);
+  const updateBanner = renderUpdateBanner(state.updateAvailable);
 
   app.innerHTML = `
     <div class="app-shell min-h-screen text-slate-900">
@@ -499,7 +447,7 @@ function render() {
 }
 function renderPage(route) {
   if (state.loading) {
-    return renderPageLoadingNotification();
+    return renderPageLoading();
   }
 
   if (route.name === "login") {
@@ -598,7 +546,7 @@ async function handleClick(event) {
   }
 
   if (action === "clear-search") {
-    clearSearch(state, searchFeatureDeps);
+    clearSearch(state);
   }
 }
 
@@ -607,7 +555,7 @@ function handleInput(event) {
   if (!(target instanceof HTMLInputElement)) return;
 
   if (target.id === "manualSearchInput") {
-    applySearchInput(state, target.value, searchFeatureDeps);
+    applySearchInput(state, target.value);
   }
 }
 
@@ -625,7 +573,7 @@ async function refreshCurrentProduct() {
   state.product = await refreshProductData(apiFetch, state.product);
 
   if (getCurrentRoute().name === "productSearch") {
-    refreshSearchResults(state, searchFeatureDeps);
+    refreshSearchResults(state);
   }
 }
 

@@ -1,4 +1,4 @@
-import { renderButton } from "../components/button";
+import { renderButton } from "./button";
 
 export function renderUpdateBanner(updateAvailable) {
   if (!updateAvailable) return "";

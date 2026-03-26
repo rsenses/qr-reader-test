@@ -1,12 +1,9 @@
 import { renderButton } from "../components/button";
 import { renderCard } from "../components/card";
 import { renderEmptyState } from "../components/empty-state";
+import { renderInlineError } from "../components/inline-alert";
 import { renderInputField } from "../components/input-field";
 import { renderProductSectionHeader } from "../components/section-header";
-import {
-  renderInlineError,
-  renderInlineLastValidation,
-} from "../notifications/notifications-service";
 import { renderLastValidationCard } from "./product-detail-page";
 import { optionRowClass } from "./page-helpers";
 
@@ -23,7 +20,7 @@ export function renderRegisterPage({ product, productCampaign, registerError, la
     </div>
 
     ${renderInlineError(registerError)}
-    ${renderInlineLastValidation(lastValidation, renderLastValidationCard)}
+    ${renderLastValidationCard(lastValidation)}
 
     <form id="registerForm" class="mt-5 grid gap-[1.125rem]">
       ${renderInputField({ name: "name", label: "Nombre" })}

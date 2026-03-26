@@ -1,7 +1,7 @@
 import { renderButton } from "../components/button";
 import { renderCard } from "../components/card";
+import { renderInlineError } from "../components/inline-alert";
 import { renderInputField } from "../components/input-field";
-import { renderInlineError } from "../notifications/notifications-service";
 import { renderIcon } from "./page-helpers";
 
 export function renderLoginPage({ loginError, email = "" }) {

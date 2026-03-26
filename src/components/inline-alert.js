@@ -8,3 +8,7 @@ export function renderInlineAlert(message, { className = "" } = {}) {
   const classes = [inlineAlertClass, className].filter(Boolean).join(" ");
   return `<div class="${classes}">${escapeHtml(message)}</div>`;
 }
+
+export function renderInlineError(message) {
+  return renderInlineAlert(message, { className: "mt-4" });
+}

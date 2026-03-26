@@ -26,6 +26,28 @@ export function hideScannerOverlay() {
   overlayEl.classList.remove("success", "error");
 }
 
+export function showPendingScannerOverlay(
+  pendingOverlay,
+  scannerState,
+  { showOverlay, hideOverlay, setStatus, onResetPendingOverlay } = {},
+) {
+  if (!pendingOverlay) return;
+
+  showOverlay?.(pendingOverlay.type, pendingOverlay.title, pendingOverlay.subtitle);
+
+  if (scannerState?.overlayTimer) {
+    clearTimeout(scannerState.overlayTimer);
+  }
+
+  if (!scannerState) return;
+
+  scannerState.overlayTimer = setTimeout(() => {
+    hideOverlay?.();
+    onResetPendingOverlay?.();
+    setStatus?.("escaneando");
+  }, 2000);
+}
+
 export function showScannerLoading(text = "Abriendo camara...") {
   const loadingEl = document.getElementById("scannerLoading");
   const loadingTextEl = document.getElementById("scannerLoadingText");

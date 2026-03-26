@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { escapeAttribute, escapeHtml } from "./html-utils";
 import {
+  formatMetadataKey,
   buildProductFromRegistrations,
   buildProductRegistrationPayload,
   getRegisterPayload,
@@ -49,6 +50,11 @@ describe("normalizeMetadata", () => {
 });
 
 describe("metadataText", () => {
+  it("formats metadata keys for display", () => {
+    expect(formatMetadataKey("last_name")).toBe("Last name");
+    expect(formatMetadataKey("company")).toBe("Company");
+  });
+
   it("returns fallback text for empty metadata", () => {
     expect(metadataText()).toBe("Sin metadatos");
     expect(metadataText([])).toBe("Sin metadatos");
@@ -58,9 +64,9 @@ describe("metadataText", () => {
     expect(
       metadataText([
         { key: "company", value: "Acme" },
-        { key: "city", value: "Madrid" },
+        { key: "last_name", value: "Madrid" },
       ]),
-    ).toBe("company: Acme · city: Madrid");
+    ).toBe("Company: Acme · Last name: Madrid");
   });
 });
 

@@ -26,6 +26,16 @@ describe("getApiErrorMessage", () => {
     );
   });
 
+  it("shows previous access message for verification when returned by api", () => {
+    expect(
+      getApiErrorMessage({
+        path: "/api/v1/verify/qr-1",
+        status: 409,
+        backendMessage: "Acceso realizado anteriormente",
+      }),
+    ).toBe("Acceso realizado anteriormente");
+  });
+
   it("maps generic statuses without exposing backend detail", () => {
     expect(getApiErrorMessage({ path: "/api/v1/campaigns", status: 429 })).toBe(
       "Hay demasiadas solicitudes. Espera un momento y vuelve a intentarlo.",

@@ -1,4 +1,5 @@
 const DEFAULT_UI_MESSAGE = "No se ha podido completar la operacion. Intentalo de nuevo.";
+const PREVIOUS_ACCESS_MESSAGE = "Acceso realizado anteriormente";
 
 function getOperationType(path = "") {
   if (path === "/api/v1/login") return "login";
@@ -9,7 +10,11 @@ function getOperationType(path = "") {
   return "default";
 }
 
-export function getApiErrorMessage({ path = "", status } = {}) {
+function normalizeBackendMessage(message) {
+  return String(message || "").trim().toLowerCase();
+}
+
+export function getApiErrorMessage({ path = "", status, backendMessage } = {}) {
   const operationType = getOperationType(path);
 
   if (operationType === "login") {
@@ -29,6 +34,10 @@ export function getApiErrorMessage({ path = "", status } = {}) {
   }
 
   if (operationType === "verification") {
+    if (normalizeBackendMessage(backendMessage) === PREVIOUS_ACCESS_MESSAGE.toLowerCase()) {
+      return PREVIOUS_ACCESS_MESSAGE;
+    }
+
     if (status === 400 || status === 404 || status === 409 || status === 422) {
       return "No se ha podido validar el QR. Comprueba el codigo e intentalo otra vez.";
     }

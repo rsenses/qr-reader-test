@@ -83,7 +83,11 @@ export function createApiClient({
       }
 
       const error = createUiError(
-        getApiErrorMessage({ path, status: response.status }),
+        getApiErrorMessage({
+          path,
+          status: response.status,
+          backendMessage: data?.message,
+        }),
         {
           data,
           status: response.status,

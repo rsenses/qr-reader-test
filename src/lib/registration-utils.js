@@ -1,6 +1,12 @@
+export function formatMetadataKey(key) {
+  const normalizedKey = String(key || "").replaceAll("_", " ").trim();
+  if (!normalizedKey) return "";
+  return normalizedKey.charAt(0).toUpperCase() + normalizedKey.slice(1);
+}
+
 export function metadataText(metadata = []) {
   if (!metadata.length) return "Sin metadatos";
-  return metadata.map((item) => `${item.key}: ${item.value}`).join(" · ");
+  return metadata.map((item) => `${formatMetadataKey(item.key)}: ${item.value}`).join(" · ");
 }
 
 export function normalizeMetadata(metadata) {

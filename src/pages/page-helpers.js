@@ -1,4 +1,5 @@
 import { escapeHtml } from "../lib/html-utils";
+import { formatMetadataKey } from "../lib/registration-utils";
 
 export const simpleCardClass =
   "rounded-[22px] border border-[color:var(--control-border)] bg-[color:var(--control-bg)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-[border-color,transform,box-shadow,background-color] duration-150";
@@ -40,7 +41,7 @@ export function renderMetadataLines(metadata = []) {
     ? metadata
         .map(
           (item) =>
-            `<p><strong>${escapeHtml(item.key)}:</strong> ${escapeHtml(item.value)}</p>`,
+            `<p><strong>${escapeHtml(formatMetadataKey(item.key))}:</strong> ${escapeHtml(item.value)}</p>`,
         )
         .join("")
     : "";

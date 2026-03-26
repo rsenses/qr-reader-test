@@ -1,3 +1,13 @@
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' https://inscripciones.expansion.com; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://inscripciones.expansion.com; manifest-src 'self'; worker-src 'self'; media-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), accelerometer=(), gyroscope=(), magnetometer=()
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+
+/
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /index.html
   Cache-Control: no-store, no-cache, must-revalidate
 
@@ -6,3 +16,21 @@
 
 /manifest.webmanifest
   Cache-Control: no-store
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/favicon.svg
+  Cache-Control: no-cache
+
+/apple-touch-icon.png
+  Cache-Control: no-cache
+
+/icons.svg
+  Cache-Control: no-cache
+
+/pwa-192.png
+  Cache-Control: no-cache
+
+/pwa-512.png
+  Cache-Control: no-cache

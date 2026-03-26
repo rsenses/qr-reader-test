@@ -1,4 +1,4 @@
-import { normalizeSearch } from "../lib/domain-utils";
+import { normalizeSearch } from "../lib/search-utils";
 
 export function filterAttendees(attendees, query) {
   const normalized = normalizeSearch(query);

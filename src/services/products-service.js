@@ -1,4 +1,4 @@
-import { buildProductFromRegistrations } from "../lib/domain-utils";
+import { buildProductFromRegistrations } from "../lib/registration-utils";
 import { ensureCampaignsLoaded } from "./campaigns-service";
 
 const CAMPAIGN_ALL_PRODUCT_PREFIX = "campaign-all-";
@@ -31,6 +31,10 @@ export async function fetchCampaignProducts(apiFetch, campaignId) {
     : Array.isArray(response?.data)
       ? response.data
       : [];
+
+  if (products.length <= 1) {
+    return products;
+  }
 
   return [buildCampaignAggregateProduct({ id: campaignId }, products), ...products];
 

@@ -1,16 +1,8 @@
 export function setScannerStatus(text) {
-  const statusEl = document.getElementById("status");
-  if (statusEl) statusEl.textContent = `Estado: ${text}`;
-
   const loadingTextEl = document.getElementById("scannerLoadingText");
   if (loadingTextEl && text === "pidiendo acceso a camara...") {
     loadingTextEl.textContent = "Abriendo camara...";
   }
-}
-
-export function setScannerResult(text) {
-  const resultEl = document.getElementById("result");
-  if (resultEl) resultEl.textContent = `Ultimo resultado: ${text}`;
 }
 
 export function showScannerOverlay(type, title, subtitle) {

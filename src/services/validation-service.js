@@ -1,4 +1,4 @@
-import { metadataText, normalizeRegistration } from "../lib/domain-utils";
+import { metadataText, normalizeRegistration } from "../lib/registration-utils";
 
 export async function validateRegistrationCode(apiFetch, decodedText, context) {
   const verifyQuery = new URLSearchParams();

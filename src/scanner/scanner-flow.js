@@ -21,7 +21,6 @@ export function createScannerFlow({
   refreshCurrentProduct,
   onValidationSuccess,
   onValidationError,
-  showDecodedResult,
   showVerifyingStatus,
   showDetectedStatus,
   showSuccessStatus,
@@ -46,7 +45,6 @@ export function createScannerFlow({
     scannerState.processingResult = true;
 
     try {
-      showDecodedResult(decodedText);
       showVerifyingStatus();
 
       const validation = await validateQr(decodedText);

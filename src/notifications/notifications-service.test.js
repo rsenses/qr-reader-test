@@ -1,72 +1,70 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  showInfoNotification,
-  showResultNotification,
-  showScannerNotification,
+  renderInlineError,
+  renderInlineLastValidation,
+  renderPageLoadingNotification,
+  renderUpdateNotification,
+  showPendingScannerOverlayNotification,
+  showScannerOverlayNotification,
+  syncLastValidationNotification,
 } from "./notifications-service";
 
 describe("notifications-service", () => {
-  it("delegates result notifications to sync helpers", () => {
+  it("renders and syncs validation notifications directly", () => {
     const syncLastValidationUI = vi.fn();
-    const renderLastValidationCard = vi.fn();
+    const renderLastValidationCard = vi.fn().mockReturnValue("<article>ok</article>");
 
-    showResultNotification(
-      { channel: "last-validation", lastValidation: { ok: true } },
-      { syncLastValidationUI, renderLastValidationCard },
+    syncLastValidationNotification(
+      { ok: true },
+      renderLastValidationCard,
+      syncLastValidationUI,
     );
 
     expect(syncLastValidationUI).toHaveBeenCalledWith(
       { ok: true },
       renderLastValidationCard,
     );
-
-    renderLastValidationCard.mockReturnValue("<article>ok</article>");
-    expect(
-      showResultNotification(
-        { channel: "inline-last-validation", lastValidation: { ok: true } },
-        { renderLastValidationCard },
-      ),
-    ).toBe("<article>ok</article>");
+    expect(renderInlineLastValidation({ ok: true }, renderLastValidationCard)).toBe(
+      "<article>ok</article>",
+    );
   });
 
-  it("delegates scanner notifications to the right helper", () => {
-    const setStatus = vi.fn();
+  it("delegates scanner notifications with explicit helpers", () => {
+    vi.useFakeTimers();
+
     const showOverlay = vi.fn();
+    const hideOverlay = vi.fn();
+    const onResetPendingOverlay = vi.fn();
+    const setStatus = vi.fn();
+    const scannerState = { overlayTimer: null };
 
-    showScannerNotification({ channel: "status", text: "escaneando" }, { setStatus });
-    showScannerNotification(
-      {
-        channel: "overlay",
-        pendingOverlay: { type: "success", title: "OK", subtitle: "QR" },
-      },
-      { showOverlay },
+    showScannerOverlayNotification(
+      { type: "success", title: "OK", subtitle: "QR" },
+      showOverlay,
     );
+    showPendingScannerOverlayNotification(
+      { type: "success", title: "OK", subtitle: "QR" },
+      scannerState,
+      { showOverlay, hideOverlay, setStatus, onResetPendingOverlay },
+    );
+    vi.runAllTimers();
 
-    expect(setStatus).toHaveBeenCalledWith("escaneando");
     expect(showOverlay).toHaveBeenCalledWith("success", "OK", "QR");
+    expect(hideOverlay).toHaveBeenCalled();
+    expect(onResetPendingOverlay).toHaveBeenCalled();
+    expect(setStatus).toHaveBeenCalledWith("escaneando");
+
+    vi.useRealTimers();
   });
 
-  it("renders and delegates info notifications", () => {
+  it("renders and delegates info notifications directly", () => {
     const renderUpdateBanner = vi.fn().mockReturnValue("<section>banner</section>");
-    const showScannerLoading = vi.fn();
 
-    expect(
-      showInfoNotification(
-        { channel: "update-banner", updateAvailable: true },
-        { renderUpdateBanner },
-      ),
-    ).toBe("<section>banner</section>");
-
-    expect(
-      showInfoNotification({ channel: "login-error-inline", message: "Error" }),
-    ).toContain("Error");
-
-    showInfoNotification(
-      { channel: "scanner-loading-show", text: "Abriendo camara..." },
-      { showScannerLoading },
+    expect(renderUpdateNotification(true, renderUpdateBanner)).toBe(
+      "<section>banner</section>",
     );
-
-    expect(showScannerLoading).toHaveBeenCalledWith("Abriendo camara...");
+    expect(renderInlineError("Error")).toContain("Error");
+    expect(renderPageLoadingNotification()).toContain("Cargando datos...");
   });
 });

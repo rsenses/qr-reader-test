@@ -1,3 +1,5 @@
+import { renderButton } from "../components/button";
+
 export function renderUpdateBanner(updateAvailable) {
   if (!updateAvailable) return "";
 
@@ -7,7 +9,12 @@ export function renderUpdateBanner(updateAvailable) {
         <p class="text-sm font-semibold text-[color:var(--accent-strong)]">Nueva version disponible</p>
         <p class="mt-1 text-xs text-[color:var(--accent-strong)]/80">Actualiza la app para cargar los ultimos cambios.</p>
       </div>
-      <button type="button" data-action="update-app" class="ui-button ui-button--primary shrink-0 px-4 py-2 text-sm">Actualizar</button>
+      ${renderButton("Actualizar", {
+        type: "button",
+        variant: "primary",
+        className: "shrink-0 px-4 py-2 text-sm",
+        attributes: 'data-action="update-app"',
+      })}
     </section>
   `;
 }

@@ -1,17 +1,16 @@
 import { describe, expect, it } from "vitest";
 
+import { escapeAttribute, escapeHtml } from "./html-utils";
 import {
   buildProductFromRegistrations,
   buildProductRegistrationPayload,
-  escapeAttribute,
-  escapeHtml,
-  getProductStats,
   getRegisterPayload,
   metadataText,
   normalizeMetadata,
   normalizeRegistration,
-  normalizeSearch,
-} from "./domain-utils";
+} from "./registration-utils";
+import { normalizeSearch } from "./search-utils";
+import { getProductStats } from "./stats-utils";
 
 describe("normalizeSearch", () => {
   it("normalizes case, whitespace, accents and enye", () => {

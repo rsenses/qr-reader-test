@@ -195,145 +195,6 @@
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent 78%);
   }
 
-  .app-card {
-    position: relative;
-    overflow: hidden;
-    border-color: var(--border-soft) !important;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.02) 100%), var(--surface-raised) !important;
-    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-    backdrop-filter: blur(18px);
-  }
-
-  .ui-input,
-  .ui-input-shell {
-    border: 1px solid var(--control-border);
-    background: color-mix(in srgb, var(--control-bg) 86%, var(--surface-raised));
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(15, 23, 42, 0.02);
-  }
-
-  .ui-input {
-    min-height: 3.2rem;
-    border-radius: 1.3rem;
-    color: var(--text-strong);
-    padding: 0.95rem 1rem;
-    outline: none;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-  }
-
-  .ui-input:focus,
-  .ui-input-shell:focus-within {
-    border-color: var(--control-border-strong);
-    background: color-mix(in srgb, var(--control-bg) 70%, var(--surface-raised));
-    box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-
-  .ui-input--bare {
-    min-height: 0;
-    border: 0;
-    background: transparent;
-    padding: 0;
-    box-shadow: none;
-  }
-
-  .ui-input-shell {
-    border-radius: 1.45rem;
-    transition: border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
-  }
-
-  .ui-icon-button {
-    display: inline-flex;
-    width: 2.75rem;
-    height: 2.75rem;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text-muted);
-    transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .ui-icon-button:is(:focus-visible, :active) {
-    background: var(--control-bg-hover);
-    color: var(--text-strong);
-  }
-
-  .ui-icon-button:active {
-    transform: scale(0.94);
-  }
-
-  .ui-button {
-    display: inline-flex;
-    min-height: 3.15rem;
-    align-items: center;
-    justify-content: center;
-    border: 0;
-    border-radius: 1.15rem;
-    padding: 0.92rem 1.2rem;
-    font-size: 0.93rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease, color 0.18s ease;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .ui-button:active {
-    transform: scale(0.975);
-    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1);
-  }
-
-  .ui-button--block {
-    width: 100%;
-  }
-
-  .ui-button--primary {
-    background: linear-gradient(180deg, color-mix(in srgb, white 14%, var(--accent)), var(--accent));
-    color: #fff;
-    box-shadow: 0 14px 26px rgba(228, 79, 58, 0.24);
-  }
-
-  .ui-button--dark {
-    background: #0f172a;
-    color: #fff;
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.18);
-  }
-
-  .ui-button--outline {
-    border: 1px solid var(--control-border);
-    background: color-mix(in srgb, var(--surface-raised) 72%, var(--surface-soft));
-    color: var(--text-base);
-    box-shadow: none;
-  }
-
-  .hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.55rem 0.8rem;
-    border-radius: 999px;
-    background: var(--accent-faint);
-    color: var(--accent-strong);
-    font-size: 0.76rem;
-    font-weight: 800;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .hero-badge__icon {
-    display: inline-flex;
-    width: 0.95rem;
-    height: 0.95rem;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .hero-badge__icon svg {
-    width: 100%;
-    height: 100%;
-  }
-
   .app-nav-item {
     display: flex;
     width: 100%;
@@ -557,18 +418,6 @@
     }
   }
 
-  :root[data-theme="dark"] .hero-badge {
-    background: rgba(228, 79, 58, 0.18);
-    color: #ffb0a2;
-  }
-
-  :root[data-theme="dark"] .ui-button--dark {
-    background: color-mix(in srgb, var(--surface-soft) 82%, #000 18%);
-    color: var(--text-strong);
-    border: 1px solid var(--border-soft);
-    box-shadow: none;
-  }
-
   :root[data-theme="dark"] .border-slate-200,
   :root[data-theme="dark"] .border-slate-300 {
     border-color: var(--border-soft) !important;
@@ -594,10 +443,6 @@
 
   :root[data-theme="dark"] ::placeholder {
     color: var(--text-faint);
-  }
-
-  :root[data-theme="dark"] .shadow-\[0_12px_30px_rgba\(15\,23\,42\,0\.18\)\] {
-    box-shadow: var(--shadow-soft) !important;
   }
 
   :root[data-theme="dark"] #reader__dashboard_section_csr select {
@@ -641,15 +486,6 @@
 
     .app-main {
       padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 6.25rem);
-    }
-
-    .app-card {
-      border-radius: 1.35rem !important;
-    }
-
-    .hero-badge {
-      padding: 0.5rem 0.72rem;
-      font-size: 0.68rem;
     }
 
     .reader-shell {

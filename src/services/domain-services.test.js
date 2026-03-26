@@ -44,7 +44,7 @@ describe("campaigns-service", () => {
 
 describe("products-service", () => {
   it("fetches campaign products with the expected endpoint", async () => {
-    const products = [{ id: 4 }];
+    const products = [{ id: 4 }, { id: 5 }];
     const apiFetch = vi.fn().mockResolvedValue(products);
 
     await expect(fetchCampaignProducts(apiFetch, 9)).resolves.toEqual([
@@ -57,13 +57,20 @@ describe("products-service", () => {
   });
 
   it("accepts products wrapped under data", async () => {
-    const products = [{ id: 4 }];
+    const products = [{ id: 4 }, { id: 5 }];
     const apiFetch = vi.fn().mockResolvedValue({ data: products });
 
     await expect(fetchCampaignProducts(apiFetch, 9)).resolves.toEqual([
       buildCampaignAggregateProduct({ id: 9 }, products),
       ...products,
     ]);
+  });
+
+  it("omits the synthetic TODOS product when the campaign has a single product", async () => {
+    const products = [{ id: 4, name: "Entrada" }];
+    const apiFetch = vi.fn().mockResolvedValue(products);
+
+    await expect(fetchCampaignProducts(apiFetch, 9)).resolves.toEqual(products);
   });
 
   it("reuses local product context when product and campaign are already loaded", async () => {

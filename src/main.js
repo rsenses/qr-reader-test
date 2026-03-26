@@ -2,17 +2,18 @@ import "./style.css";
 import { extractAuthToken, isAuthFailureStatus } from "./auth/auth-utils";
 import { getStoredToken, persistToken } from "./auth/token-storage";
 import {
-  clearSearchFlow,
+  applySearchInput,
   applySearchValidationError,
   applySearchValidationSuccess,
+  clearSearch,
   findAttemptedAttendee,
+  refreshSearchResults,
 } from "./flows/search-flow";
 import {
   applyLoginError,
   applyLoginSuccess,
   submitLogin,
 } from "./flows/login-flow";
-import { applySearchInputFlow } from "./flows/search-input-flow";
 import {
   applyRegisterError,
   applyRegisterSuccess,
@@ -39,39 +40,37 @@ import { renderProductStatsPage } from "./pages/product-stats-page";
 import { renderRegisterPage } from "./pages/register-page";
 import { renderIcon } from "./pages/page-helpers";
 import {
-  showInfoNotification,
-  showResultNotification,
-  showScannerNotification,
+  renderPageLoadingNotification,
+  renderUpdateNotification,
+  showPendingScannerOverlayNotification,
+  syncLastValidationNotification,
 } from "./notifications/notifications-service";
+import { registerAppServiceWorker } from "./lib/service-worker-updates";
 import { renderAppNav, renderUpdateBanner } from "./ui/app-shell";
-import { getRouteRedirect } from "./router/route-guards";
 import { resolveRouteData } from "./router/route-resolver";
 import {
   applyResolvedRouteState,
   applyRouteError,
+  getRoute,
+  getRouteRedirect,
+  isScannerRoute,
   prepareRouteUiState,
   resetSessionState,
   setRouteLoading,
-} from "./router/route-state";
+} from "./router/router";
 import { createScannerController } from "./scanner/scanner-controller";
 import { createScannerFlow } from "./scanner/scanner-flow";
 import {
   hideScannerLoading,
   hideScannerOverlay,
-  setScannerResult,
   setScannerStatus,
   showScannerLoading,
   showScannerOverlay,
 } from "./scanner/scanner-ui";
-import { getRoute, isScannerRoute } from "./router/router";
 import { refreshProductData } from "./services/products-service";
 import { registerAttendeeForProduct } from "./services/registration-service";
 import { getSearchResults } from "./services/search-service";
-import {
-  syncLastValidationUI,
-  syncSearchClearButton,
-  syncSearchValidationUI,
-} from "./ui/validation-ui";
+import { syncLastValidationUI } from "./ui/validation-ui";
 import { validateRegistrationCode } from "./services/validation-service";
 
 const API_BASE_URL = "https://inscripciones.expansion.com/api/v1";
@@ -99,9 +98,14 @@ const state = {
 };
 
 let serviceWorkerRegistration = null;
-let refreshingForUpdate = false;
 
 let scannerFlow = null;
+
+const searchFeatureDeps = {
+  getSearchResults,
+  renderSearchResults,
+  renderSearchValidationCard,
+};
 
 const scannerController = createScannerController({
   Html5Qrcode,
@@ -109,25 +113,12 @@ const scannerController = createScannerController({
   renderIcon,
   onScanSuccess: (decodedText) => scannerFlow?.onScanSuccess(decodedText),
   onScanFailure,
-  showStatus: (text) =>
-    showScannerNotification({ channel: "status", text }, { setStatus: setScannerStatus }),
-  showLoading: (text) =>
-    showInfoNotification(
-      { channel: "scanner-loading-show", text },
-      { showScannerLoading },
-    ),
-  hideLoading: () =>
-    showInfoNotification({ channel: "scanner-loading-hide" }, { hideScannerLoading }),
-  hideOverlay: () =>
-    showScannerNotification({ channel: "overlay-hide" }, { hideOverlay: hideScannerOverlay }),
+  showStatus: showScannerStatus,
+  showLoading: showScannerLoading,
+  hideLoading: hideScannerLoading,
+  hideOverlay: hideScannerOverlay,
   onAutoStartError: () =>
-    showScannerNotification(
-      {
-        channel: "status",
-        text: "pulsa iniciar camara si el navegador no la abre automaticamente",
-      },
-      { setStatus: setScannerStatus },
-    ),
+    showScannerStatus("pulsa iniciar camara si el navegador no la abre automaticamente"),
 });
 const scannerState = scannerController.state;
 const { setupScanner, destroyScanner } = scannerController;
@@ -148,54 +139,29 @@ scannerFlow = createScannerFlow({
       title: validation.title,
       subtitle: validation.subtitle,
     };
-    showResultNotification(
-      { channel: "last-validation", lastValidation: state.lastValidation },
-      { syncLastValidationUI, renderLastValidationCard },
+    syncLastValidationNotification(
+      state.lastValidation,
+      renderLastValidationCard,
+      syncLastValidationUI,
     );
     showPendingScannerOverlay();
   },
   onValidationError: (error) => {
     const subtitle = error.message || "Ha fallado el proceso";
     state.lastValidation = null;
-    showResultNotification(
-      { channel: "last-validation", lastValidation: state.lastValidation },
-      { syncLastValidationUI, renderLastValidationCard },
+    syncLastValidationNotification(
+      state.lastValidation,
+      renderLastValidationCard,
+      syncLastValidationUI,
     );
-    showScannerNotification(
-      {
-        channel: "overlay",
-        pendingOverlay: {
-          type: "error",
-          title: "Error de verificacion",
-          subtitle,
-        },
-      },
-      { showOverlay: showScannerOverlay },
-    );
+    showScannerOverlay("error", "Error de verificacion", subtitle);
   },
-  showDecodedResult: (decodedText) =>
-    showScannerNotification({ channel: "result", text: decodedText }, { setResult: setScannerResult }),
-  showVerifyingStatus: () =>
-    showScannerNotification({ channel: "status", text: "verificando..." }, { setStatus: setScannerStatus }),
-  showDetectedStatus: () =>
-    showScannerNotification(
-      { channel: "status", text: "QR detectado, confirmando..." },
-      { setStatus: setScannerStatus },
-    ),
-  showSuccessStatus: () =>
-    showScannerNotification(
-      { channel: "status", text: "verificacion correcta" },
-      { setStatus: setScannerStatus },
-    ),
-  showErrorStatus: () =>
-    showScannerNotification(
-      { channel: "status", text: "verificacion incorrecta" },
-      { setStatus: setScannerStatus },
-    ),
-  hideOverlay: () =>
-    showScannerNotification({ channel: "overlay-hide" }, { hideOverlay: hideScannerOverlay }),
-  showScanningStatus: () =>
-    showScannerNotification({ channel: "status", text: "escaneando" }, { setStatus: setScannerStatus }),
+  showVerifyingStatus: () => showScannerStatus("verificando..."),
+  showDetectedStatus: () => showScannerStatus("QR detectado, confirmando..."),
+  showSuccessStatus: () => showScannerStatus("verificacion correcta"),
+  showErrorStatus: () => showScannerStatus("verificacion incorrecta"),
+  hideOverlay: hideScannerOverlay,
+  showScanningStatus: () => showScannerStatus("escaneando"),
 });
 
 window.addEventListener("hashchange", handleRouteChange);
@@ -220,52 +186,28 @@ function applyTheme() {
 }
 
 function registerServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
-
-  window.addEventListener("load", async () => {
-    try {
-      serviceWorkerRegistration =
-        await navigator.serviceWorker.register("/sw.js");
-      observeServiceWorker(serviceWorkerRegistration);
-      await serviceWorkerRegistration.update();
-
-      window.addEventListener("focus", () => {
-        serviceWorkerRegistration?.update().catch(() => {});
-      });
-
-      navigator.serviceWorker.addEventListener("controllerchange", () => {
-        if (refreshingForUpdate) return;
-        refreshingForUpdate = true;
-        window.location.reload();
-      });
-    } catch (error) {
-      console.error("No se pudo registrar el service worker", error);
-    }
+  registerAppServiceWorker({
+    onUpdateAvailable: (registration) => {
+      serviceWorkerRegistration = registration;
+      state.updateAvailable = true;
+      render();
+    },
+    onReload: () => {
+      window.location.reload();
+    },
   });
 }
 
-function observeServiceWorker(registration) {
-  if (!registration) return;
+function syncLastValidation(lastValidation) {
+  syncLastValidationNotification(
+    lastValidation,
+    renderLastValidationCard,
+    syncLastValidationUI,
+  );
+}
 
-  if (registration.waiting) {
-    state.updateAvailable = true;
-    render();
-  }
-
-  registration.addEventListener("updatefound", () => {
-    const installingWorker = registration.installing;
-    if (!installingWorker) return;
-
-    installingWorker.addEventListener("statechange", () => {
-      if (
-        installingWorker.state === "installed" &&
-        navigator.serviceWorker.controller
-      ) {
-        state.updateAvailable = true;
-        render();
-      }
-    });
-  });
+function showScannerStatus(text) {
+  setScannerStatus(text);
 }
 
 function nowMs() {
@@ -380,10 +322,94 @@ function getScannerOverlayDeps() {
 }
 
 function showPendingScannerOverlay() {
-  showScannerNotification(
-    { channel: "pending-overlay", pendingOverlay: state.pendingOverlay, scannerState },
+  showPendingScannerOverlayNotification(
+    state.pendingOverlay,
+    scannerState,
     getScannerOverlayDeps(),
   );
+}
+
+async function handleLoginFormSubmit(form) {
+  const formData = Object.fromEntries(new FormData(form).entries());
+
+  try {
+    const { token } = await submitLogin(apiFetch, formData, extractAuthToken);
+    applyLoginSuccess(state, token, { persistToken, resetSessionState });
+    window.location.hash = "#/campaigns";
+  } catch (error) {
+    applyLoginError(state, error.message, String(formData.email || ""));
+    render();
+  }
+}
+
+async function handleRegisterFormSubmit(form) {
+  const formData = Object.fromEntries(new FormData(form).entries());
+
+  try {
+    const { validation } = await submitRegisterFlow(
+      {
+        apiFetch,
+        formData,
+        productId: state.product?.id,
+        productIds: state.product?.mode === "campaign" ? state.product.productIds : undefined,
+      },
+      {
+        registerAttendeeForProduct,
+        validateQr,
+        refreshCurrentProduct,
+      },
+    );
+
+    applyRegisterSuccess(state, validation);
+    render();
+    showPendingScannerOverlay();
+    form.reset();
+  } catch (error) {
+    applyRegisterError(state, error.message);
+    render();
+  }
+}
+
+async function handleValidateAttendeeAction(qrCode) {
+  const attemptedAttendee = findAttemptedAttendee(state, qrCode);
+  const inSearchRoute = () => getCurrentRoute().name === "productSearch";
+
+  try {
+    const validation = await validateQr(qrCode);
+    await refreshCurrentProduct();
+
+    if (inSearchRoute()) {
+      applySearchValidationSuccess(state, validation, { renderSearchValidationCard });
+      return;
+    }
+
+    applyProductValidationSuccess(state, validation, {
+      syncLastValidationUI: syncLastValidation,
+      renderLastValidationCard,
+      showValidationOverlay: showPendingScannerOverlay,
+    });
+  } catch (error) {
+    if (inSearchRoute()) {
+      applySearchValidationError(state, error.message, attemptedAttendee, {
+        renderSearchResults,
+        renderSearchValidationCard,
+      });
+      return;
+    }
+
+    applyProductValidationError(state, error.message, showPendingScannerOverlay);
+  }
+}
+
+function handleUpdateAppAction(event) {
+  event.preventDefault();
+
+  if (serviceWorkerRegistration?.waiting) {
+    serviceWorkerRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
+    return;
+  }
+
+  window.location.reload();
 }
 
 async function applyRouteGuards(route) {
@@ -453,10 +479,7 @@ function render() {
   const route = getCurrentRoute();
   const page = renderPage(route);
   const appNav = renderAppNav(route, state.product, renderIcon);
-  const updateBanner = showInfoNotification(
-    { channel: "update-banner", updateAvailable: state.updateAvailable },
-    { renderUpdateBanner },
-  );
+  const updateBanner = renderUpdateNotification(state.updateAvailable, renderUpdateBanner);
 
   app.innerHTML = `
     <div class="app-shell min-h-screen text-slate-900">
@@ -476,7 +499,7 @@ function render() {
 }
 function renderPage(route) {
   if (state.loading) {
-    return showInfoNotification({ channel: "page-loading" });
+    return renderPageLoadingNotification();
   }
 
   if (route.name === "login") {
@@ -544,47 +567,13 @@ async function handleSubmit(event) {
 
   if (form.id === "loginForm") {
     event.preventDefault();
-    const formData = Object.fromEntries(new FormData(form).entries());
-
-    try {
-      const { token } = await submitLogin(apiFetch, formData, extractAuthToken);
-      applyLoginSuccess(state, token, { persistToken, resetSessionState });
-      window.location.hash = "#/campaigns";
-    } catch (error) {
-      applyLoginError(state, error.message, String(formData.email || ""));
-      render();
-    }
-
+    await handleLoginFormSubmit(form);
     return;
   }
 
   if (form.id === "registerForm") {
     event.preventDefault();
-    const formData = Object.fromEntries(new FormData(form).entries());
-
-    try {
-      const { validation } = await submitRegisterFlow(
-        {
-          apiFetch,
-          formData,
-          productId: state.product?.id,
-          productIds: state.product?.mode === "campaign" ? state.product.productIds : undefined,
-        },
-        {
-          registerAttendeeForProduct,
-          validateQr,
-          refreshCurrentProduct,
-        },
-      );
-
-      applyRegisterSuccess(state, validation);
-      render();
-      showPendingScannerOverlay();
-      form.reset();
-    } catch (error) {
-      applyRegisterError(state, error.message);
-      render();
-    }
+    await handleRegisterFormSubmit(form);
   }
 }
 
@@ -599,85 +588,17 @@ async function handleClick(event) {
   if (!action) return;
 
   if (action === "validate-attendee") {
-    const attemptedAttendee = findAttemptedAttendee(state, actionEl.dataset.qrcode);
-
-    try {
-      const validation = await validateQr(actionEl.dataset.qrcode);
-      await refreshCurrentProduct();
-      if (getCurrentRoute().name === "productSearch") {
-        applySearchValidationSuccess(state, validation, {
-          syncSearchValidationUI: (searchValidation, renderCard) =>
-            showResultNotification(
-              { channel: "search-validation", searchValidation },
-              {
-                syncSearchValidationUI,
-                renderSearchValidationCard: renderCard,
-              },
-            ),
-          renderSearchValidationCard,
-        });
-      } else {
-        applyProductValidationSuccess(state, validation, {
-          syncLastValidationUI: (lastValidation, renderCard) =>
-            showResultNotification(
-              { channel: "last-validation", lastValidation },
-              {
-                syncLastValidationUI,
-                renderLastValidationCard: renderCard,
-              },
-          ),
-          renderLastValidationCard,
-          showValidationOverlay: showPendingScannerOverlay,
-        });
-      }
-    } catch (error) {
-      if (getCurrentRoute().name === "productSearch") {
-        applySearchValidationError(state, error.message, attemptedAttendee, {
-          renderSearchResults,
-          renderSearchValidationCard,
-          syncSearchValidationUI: (searchValidation, renderCard) =>
-            showResultNotification(
-              { channel: "search-validation", searchValidation },
-              {
-                syncSearchValidationUI,
-                renderSearchValidationCard: renderCard,
-              },
-            ),
-        });
-      } else {
-        applyProductValidationError(state, error.message, showPendingScannerOverlay);
-      }
-    }
+    await handleValidateAttendeeAction(actionEl.dataset.qrcode);
     return;
   }
 
   if (action === "update-app") {
-    event.preventDefault();
-
-    if (serviceWorkerRegistration?.waiting) {
-      serviceWorkerRegistration.waiting.postMessage({ type: "SKIP_WAITING" });
-      return;
-    }
-
-    window.location.reload();
+    handleUpdateAppAction(event);
     return;
   }
 
   if (action === "clear-search") {
-    clearSearchFlow(state, {
-      render,
-      renderSearchResults,
-      renderSearchValidationCard,
-      syncSearchClearButton,
-      syncSearchValidationUI: (searchValidation, renderCard) =>
-        showResultNotification(
-          { channel: "search-validation", searchValidation },
-          {
-            syncSearchValidationUI,
-            renderSearchValidationCard: renderCard,
-          },
-        ),
-    });
+    clearSearch(state, searchFeatureDeps);
   }
 }
 
@@ -686,20 +607,7 @@ function handleInput(event) {
   if (!(target instanceof HTMLInputElement)) return;
 
   if (target.id === "manualSearchInput") {
-    applySearchInputFlow(state, target.value, {
-      getSearchResults,
-      renderSearchResults,
-      renderSearchValidationCard,
-      syncSearchClearButton,
-      syncSearchValidationUI: (searchValidation, renderCard) =>
-        showResultNotification(
-          { channel: "search-validation", searchValidation },
-          {
-            syncSearchValidationUI,
-            renderSearchValidationCard: renderCard,
-          },
-        ),
-    });
+    applySearchInput(state, target.value, searchFeatureDeps);
   }
 }
 
@@ -717,19 +625,7 @@ async function refreshCurrentProduct() {
   state.product = await refreshProductData(apiFetch, state.product);
 
   if (getCurrentRoute().name === "productSearch") {
-    const searchState = getSearchResults(
-      state.product.attendees,
-      state.searchQuery,
-    );
-    state.searchResults = searchState.results;
-    const resultsEl = document.getElementById("manualSearchResults");
-    if (resultsEl) {
-      resultsEl.innerHTML = renderSearchResults({
-        searchQuery: state.searchQuery,
-        searchResults: state.searchResults,
-        hasEnoughChars: searchState.hasEnoughChars,
-      });
-    }
+    refreshSearchResults(state, searchFeatureDeps);
   }
 }
 

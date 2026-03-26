@@ -1,4 +1,4 @@
-import { buildProductFromRegistrations } from "../lib/domain-utils";
+import { buildProductFromRegistrations } from "../lib/registration-utils";
 import {
   ensureCampaignsLoaded,
   findCampaignById,

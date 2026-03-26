@@ -1,7 +1,7 @@
 import {
   buildProductRegistrationPayload,
   getRegisterPayload,
-} from "../lib/domain-utils";
+} from "../lib/registration-utils";
 
 export async function registerUser(apiFetch, formData) {
   return apiFetch("/api/v1/register", {

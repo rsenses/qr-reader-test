@@ -136,6 +136,84 @@
     color: inherit;
     text-decoration: none;
   }
+
+  /* Floating label input */
+  .floating-input {
+    position: relative;
+  }
+
+  .floating-input input {
+    width: 100%;
+    min-height: 3.2rem;
+    border: none;
+    border-bottom: 2px solid var(--control-border);
+    border-radius: 12px;
+    background: var(--control-bg);
+    padding: 1.25rem 1rem 0.5rem;
+    font-size: 1rem;
+    color: var(--text-strong);
+    outline: none;
+    transition: border-color 0.2s, background-color 0.2s;
+  }
+
+  .floating-input input:focus {
+    border-bottom-color: var(--accent);
+    background: var(--control-bg-hover);
+  }
+
+  .floating-input input::placeholder {
+    color: transparent;
+  }
+
+  .floating-input label {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    font-size: 1rem;
+    color: var(--text-muted);
+    pointer-events: none;
+    transition: all 0.2s ease;
+  }
+
+  .floating-input input:focus + label,
+  .floating-input input:not(:placeholder-shown) + label {
+    top: 0.25rem;
+    font-size: 0.7rem;
+    color: var(--accent);
+  }
+
+  /* Ripple effect */
+  .ripple {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .ripple::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 140%;
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.12) 28%, rgba(255, 255, 255, 0) 68%);
+    transform: translate(-50%, -50%) scale(0.35);
+    opacity: 0;
+    transition: transform 0.28s ease-out, opacity 0.22s ease-out;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .ripple:active::after {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+
+  .ripple > * {
+    position: relative;
+    z-index: 1;
+  }
 }
 
 @layer components {
@@ -208,7 +286,11 @@
     background: transparent;
     color: var(--text-muted);
     cursor: pointer;
-    transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    transition:
+      background-color 0.18s ease,
+      color 0.18s ease,
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -226,7 +308,12 @@
   }
 
   .app-nav-item-active {
-    background: linear-gradient(135deg, #ff836b 0%, var(--accent) 52%, #c73e2c 100%);
+    background: linear-gradient(
+      135deg,
+      #ff836b 0%,
+      var(--accent) 52%,
+      #c73e2c 100%
+    );
     color: white;
     transform: translateY(-1px);
     box-shadow: 0 12px 24px rgba(228, 79, 58, 0.28);
@@ -259,7 +346,9 @@
     min-height: 5.2rem;
     padding: 0.45rem;
     border-radius: 2rem;
-    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 16px 32px rgba(15, 23, 42, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.12);
   }
 
   .scan-overlay {
@@ -388,7 +477,11 @@
     align-items: center;
     justify-content: center;
     gap: 0.9rem;
-    background: radial-gradient(circle at center, rgba(15, 23, 42, 0.18), rgba(15, 23, 42, 0.82));
+    background: radial-gradient(
+      circle at center,
+      rgba(15, 23, 42, 0.18),
+      rgba(15, 23, 42, 0.82)
+    );
     backdrop-filter: blur(6px);
   }
 

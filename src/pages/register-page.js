@@ -37,7 +37,7 @@ export function renderRegisterPage({ product, productCampaign, registerError, la
   return `
     <section class="space-y-4">
       ${renderProductSectionHeader({ product, productCampaign })}
-      ${renderCard(content, { className: "rounded-[24px] p-5 sm:p-6" })}
+      ${renderCard(content, { className: "rounded-[1rem] p-5 sm:p-6" })}
     </section>
   `;
 }

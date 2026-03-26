@@ -1,7 +1,7 @@
 import { escapeHtml } from "../lib/html-utils";
 
 const BUTTON_BASE_CLASS =
-  "inline-flex min-h-[3.15rem] items-center justify-center rounded-[1.15rem] border-0 px-[1.2rem] py-[0.92rem] text-[0.93rem] font-bold tracking-[0.01em] transition-[transform,box-shadow,background-color,color,border-color] duration-150 cursor-pointer active:scale-[0.975] active:shadow-[0_6px_14px_rgba(15,23,42,0.1)] [-webkit-tap-highlight-color:transparent]";
+  "ripple inline-flex min-h-[3.15rem] items-center justify-center rounded-[1.15rem] border-0 px-[1.2rem] py-[0.92rem] text-[0.93rem] font-bold tracking-[0.01em] transition-[box-shadow,background-color,color,border-color,filter] duration-200 cursor-pointer overflow-hidden relative [-webkit-tap-highlight-color:transparent]";
 
 const BUTTON_VARIANT_CLASS = {
   primary:

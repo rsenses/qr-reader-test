@@ -3,7 +3,7 @@ import { escapeHtml } from "../lib/domain-utils";
 function renderInlineError(message) {
   if (!message) return "";
 
-  return `<div class="mt-4 rounded-2xl border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-medium text-[color:var(--accent-strong)]">${escapeHtml(message)}</div>`;
+  return `<div class="ui-inline-alert mt-4">${escapeHtml(message)}</div>`;
 }
 
 export function showResultNotification(notification, deps = {}) {
@@ -77,7 +77,7 @@ export function showInfoNotification(notification, deps = {}) {
 
   if (notification.channel === "page-loading") {
     return `
-      <section class="flex min-h-[50vh] items-center justify-center rounded-[32px] border border-dashed border-slate-300 bg-white/70 p-8 text-center shadow-sm">
+      <section class="ui-empty-state flex min-h-[50vh] items-center justify-center p-8 shadow-sm">
         <div>
           <div class="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-slate-800"></div>
           <p class="mt-4 text-sm font-medium text-slate-600">Cargando datos...</p>

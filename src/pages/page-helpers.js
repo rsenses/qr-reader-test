@@ -20,7 +20,11 @@ export function renderIcon(name) {
 }
 
 export function emptyState(message) {
-  return `<section class="rounded-[32px] border border-dashed border-slate-300 bg-white/70 p-10 text-center text-slate-600">${escapeHtml(message)}</section>`;
+  return `<section class="ui-empty-state">${escapeHtml(message)}</section>`;
+}
+
+export function renderInlineNote(message) {
+  return `<p class="ui-inline-note">${escapeHtml(message)}</p>`;
 }
 
 export function renderProductSectionHeader({ product, productCampaign }) {
@@ -29,8 +33,11 @@ export function renderProductSectionHeader({ product, productCampaign }) {
 
   return `
     <div class="flex items-center justify-between gap-3 px-1">
-      <a href="${backHref}" class="shrink-0 inline-flex items-center gap-2 text-sm font-semibold text-slate-600">← Productos</a>
-      <span class="w-[75%] max-w-[75%] truncate rounded-full bg-slate-100 px-3 py-1 text-right text-xs font-semibold text-slate-500">${escapeHtml(productName)}</span>
+      <a href="${backHref}" class="ui-back-link shrink-0 inline-flex items-center gap-2 text-sm font-semibold">← Productos</a>
+      ${renderBadge(productName, {
+        tone: "chip",
+        className: "w-[75%] max-w-[75%] justify-end truncate text-right",
+      })}
     </div>
   `;
 }
@@ -40,20 +47,26 @@ export function renderField(name, label, type = "text", required = true) {
   return `
     <label class="block">
       <span class="mb-2 block text-sm font-semibold text-slate-700">${label}</span>
-      <input id="${fieldId}" name="${name}" type="${type}" autocomplete="off" ${required ? "required" : ""} class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-slate-900" />
+      <input id="${fieldId}" name="${name}" type="${type}" autocomplete="off" ${required ? "required" : ""} class="ui-input w-full" />
     </label>
   `;
+}
+
+export function renderBadge(label, { tone = "neutral", size = "sm", className = "" } = {}) {
+  const sizeClass = size === "md" ? "ui-badge--md" : "ui-badge--sm";
+  const classes = [`ui-badge`, `ui-badge--${tone}`, sizeClass, className].filter(Boolean).join(" ");
+  return `<span class="${classes}">${escapeHtml(label)}</span>`;
 }
 
 export function registrationTypeBadgeClass(type) {
   const normalized = normalizeSearch(type);
 
-  if (normalized === "ponente") return "bg-sky-100 text-sky-800";
-  if (normalized === "vip") return "bg-amber-100 text-amber-900";
-  if (normalized === "invitado") return "bg-violet-100 text-violet-800";
-  if (normalized === "asistente") return "bg-emerald-100 text-emerald-800";
+  if (normalized === "ponente") return "ui-badge ui-badge--type-speaker ui-badge--md";
+  if (normalized === "vip") return "ui-badge ui-badge--type-vip ui-badge--md";
+  if (normalized === "invitado") return "ui-badge ui-badge--type-guest ui-badge--md";
+  if (normalized === "asistente") return "ui-badge ui-badge--type-attendee ui-badge--md";
 
-  return "bg-slate-200 text-slate-700";
+  return "ui-badge ui-badge--neutral ui-badge--md";
 }
 
 export function renderMetadataLines(metadata = []) {
@@ -76,4 +89,31 @@ export function renderResultDetails(attendee) {
   ].filter(Boolean);
 
   return `${detailLines.join("")}${renderMetadataLines(attendee.metadata)}`;
+}
+
+export function renderValidationCard({
+  tone = "neutral",
+  eyebrow,
+  title,
+  statusLabel,
+  statusTone = tone,
+  registrationType,
+  detailsHtml = "",
+  message,
+}) {
+  return `
+    <article class="ui-validation-card ui-validation-card--${tone}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0 flex-1">
+          ${eyebrow ? `<p class="ui-validation-card__eyebrow">${escapeHtml(eyebrow)}</p>` : ""}
+          ${title ? `<h3 class="ui-validation-card__title">${escapeHtml(title)}</h3>` : ""}
+        </div>
+        ${statusLabel ? renderBadge(statusLabel, { tone: statusTone, className: "shrink-0" }) : ""}
+      </div>
+
+      ${registrationType ? `<div class="mt-3"><span class="${registrationTypeBadgeClass(registrationType)}">${escapeHtml(registrationType)}</span></div>` : ""}
+      ${detailsHtml ? `<div class="ui-detail-list mt-4">${detailsHtml}</div>` : ""}
+      ${message ? `<p class="ui-validation-card__message">${escapeHtml(message)}</p>` : ""}
+    </article>
+  `;
 }

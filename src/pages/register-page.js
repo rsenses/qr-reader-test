@@ -31,11 +31,11 @@ export function renderRegisterPage({ product, productCampaign, registerError, la
           ${renderField("name", "Nombre")}
           ${renderField("last_name", "Apellidos")}
           ${renderField("email", "Email", "email")}
-          <label class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <label class="ui-option-row flex items-center gap-3 px-4 py-3">
             <input name="advertising" type="checkbox" value="1" checked class="h-4 w-4 rounded border-slate-300" />
             <span class="text-sm font-medium text-slate-700">Acepta comunicaciones comerciales</span>
           </label>
-          <button class="rounded-2xl bg-[color:var(--accent)] px-5 py-3 text-sm font-semibold text-white">Registrar</button>
+          <button class="ui-button ui-button--primary">Registrar</button>
         </form>
       </article>
     </section>

@@ -28,7 +28,7 @@ export function renderCampaignProductsPage({ campaign, products }) {
   return `
     <section>
       ${renderSectionHeader({ backHref: "#/campaigns", backLabel: "← Campañas", className: "" })}
-      ${renderCard(content, { className: "mt-4 rounded-[1rem] p-5 sm:p-6" })}
+      ${renderCard(content, { className: "mt-4 rounded-2xl p-5 sm:p-6" })}
     </section>
   `;
 }

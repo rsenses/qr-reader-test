@@ -60,7 +60,7 @@ export function renderAppNav(route, product, renderIcon) {
 
   return `
     <nav class="app-bottom-nav-wrap fixed inset-x-0 bottom-0 z-30 mx-auto w-full max-w-3xl px-4 pb-4 sm:px-6" aria-label="Navegacion del producto">
-      <div class="app-bottom-nav relative grid grid-cols-4 gap-2 rounded-[28px] border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-soft)] backdrop-blur">
+    <div class="app-bottom-nav relative grid grid-cols-4 gap-2 rounded-2xl border border-[color:var(--border-soft)] bg-[color:var(--surface-raised)] p-2 shadow-[var(--shadow-soft)] backdrop-blur">
         ${items
           .map((item) => {
             const isActive =

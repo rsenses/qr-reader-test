@@ -2,10 +2,7 @@ import { renderCard } from "../components/card";
 import { renderEmptyState } from "../components/empty-state";
 import { renderProductSectionHeader } from "../components/section-header";
 import { renderValidationCard } from "../components/validation-card";
-import {
-  renderIcon,
-  renderResultDetails,
-} from "./page-helpers";
+import { renderIcon, renderResultDetails } from "./page-helpers";
 
 export function renderLastValidationCard(lastValidation) {
   if (!lastValidation?.attendee) return "";
@@ -23,14 +20,18 @@ export function renderLastValidationCard(lastValidation) {
   });
 }
 
-export function renderProductDetailPage({ product, productCampaign, lastValidation }) {
+export function renderProductDetailPage({
+  product,
+  productCampaign,
+  lastValidation,
+}) {
   if (!product) {
     return renderEmptyState("No encontramos el producto solicitado.");
   }
 
   const content = `
       <div class="space-y-4">
-         <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black">
+    <div class="reader-shell relative overflow-hidden rounded-2xl bg-black">
           <div class="scanner-controls" aria-label="Controles de camara">
             <button id="torchBtn" type="button" hidden class="scanner-control scanner-control--primary" aria-label="Linterna">${renderIcon("flash")}</button>
             <div class="scanner-zoom-controls">

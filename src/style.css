@@ -182,6 +182,101 @@
     color: var(--accent);
   }
 
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: color-mix(in srgb, var(--surface-soft) 84%, white 16%);
+  }
+
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.12) 40%,
+      rgba(255, 255, 255, 0.34) 50%,
+      rgba(255, 255, 255, 0.12) 60%,
+      transparent 100%
+    );
+    animation: skeleton-shimmer 1.35s ease-in-out infinite;
+  }
+
+  @keyframes skeleton-shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+
+  .snackbar-wrap {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 6rem);
+    left: 1rem;
+    z-index: 70;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
+  }
+
+  .snackbar {
+    pointer-events: auto;
+    display: flex;
+    width: min(100%, 32rem);
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid transparent;
+    padding: 0.95rem 1rem;
+    backdrop-filter: blur(16px);
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.18);
+  }
+
+  .snackbar--error {
+    border-color: rgba(190, 24, 93, 0.18);
+    background: color-mix(in srgb, white 86%, #ffe4e6 14%);
+    color: #9f1239;
+  }
+
+  .snackbar--success {
+    border-color: rgba(5, 150, 105, 0.18);
+    background: color-mix(in srgb, white 86%, #d1fae5 14%);
+    color: #047857;
+  }
+
+  .snackbar--neutral {
+    border-color: rgba(148, 163, 184, 0.22);
+    background: color-mix(in srgb, white 88%, #e2e8f0 12%);
+    color: var(--text-base);
+  }
+
+  .snackbar__message {
+    flex: 1;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .snackbar__close {
+    display: inline-flex;
+    width: 2rem;
+    height: 2rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: currentColor;
+    cursor: pointer;
+    opacity: 0.72;
+  }
+
+  .snackbar__close:active {
+    opacity: 1;
+  }
+
   /* Ripple effect */
   .ripple {
     position: relative;

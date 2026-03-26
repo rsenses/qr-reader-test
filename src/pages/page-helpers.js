@@ -131,7 +131,7 @@ export function renderBadge(label, { tone = "neutral", size = "sm", className = 
   const sizeClass = BADGE_SIZE_CLASS[size] || BADGE_SIZE_CLASS.sm;
   const toneClass = BADGE_TONE_CLASS[tone] || BADGE_TONE_CLASS.neutral;
   const classes = [BADGE_BASE_CLASS, sizeClass, toneClass, className].filter(Boolean).join(" ");
-  return `<span class="${classes}">${escapeHtml(label)}</span>`;
+  return `<span class="${classes}"><span class="min-w-0 truncate">${escapeHtml(label)}</span></span>`;
 }
 
 export function registrationTypeBadgeClass(type) {

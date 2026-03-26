@@ -10,10 +10,10 @@ export function renderLoginPage({ loginError, email = "" }) {
           <span class="hero-badge__icon">${renderIcon("shield")}</span>
           <span>Acceso seguro</span>
         </div>
-        <p class="mt-5 text-xs font-semibold uppercase tracking-[0.28em] text-(--accent)">Trackit</p>
-        <h2 class="mt-2 font-heading text-3xl text-slate-900 max-[390px]:text-[1.9rem] max-[390px]:leading-[1.05] max-[360px]:text-[1.72rem]">Control de acceso claro, agil y moderno.</h2>
+        <p class="mt-4 text-xs font-semibold uppercase tracking-[0.28em] text-[color:var(--accent)]">Trackit</p>
+        <h2 class="mt-2 font-heading text-3xl leading-[1.08] text-slate-900 max-[390px]:text-[1.9rem] max-[390px]:leading-[1.05] max-[360px]:text-[1.72rem]">Control de acceso claro, agil y moderno.</h2>
         ${showInfoNotification({ channel: "login-error-inline", message: loginError })}
-        <form id="loginForm" class="mt-6 space-y-4">
+        <form id="loginForm" class="mt-5 space-y-[1.125rem]">
           <label class="block">
             <span class="mb-2 block text-sm font-semibold text-slate-700">Email</span>
             <input id="login-email" type="email" name="email" value="${escapeAttribute(email)}" autocomplete="username email" required class="ui-input w-full" />

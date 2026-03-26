@@ -2,7 +2,7 @@ import { escapeHtml } from "../lib/domain-utils";
 import { emptyState, interactiveCardClass } from "./page-helpers";
 
 const BACK_LINK_CLASS =
-  "inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text-base)] transition-[color,transform] duration-150 hover:text-[color:var(--text-strong)] hover:-translate-x-px focus-visible:text-[color:var(--text-strong)] focus-visible:-translate-x-px";
+  "inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text-base)] transition-[color,transform] duration-150 active:-translate-x-px active:text-[color:var(--text-strong)] focus-visible:text-[color:var(--text-strong)] focus-visible:-translate-x-px";
 
 export function renderCampaignProductsPage({ campaign, products }) {
   if (!campaign) {

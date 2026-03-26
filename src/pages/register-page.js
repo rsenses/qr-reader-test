@@ -22,7 +22,7 @@ export function renderRegisterPage({ product, productCampaign, registerError, la
       <article class="app-card rounded-[24px] p-5 sm:p-6">
         <div class="flex items-center justify-between gap-3 max-[390px]:flex-col max-[390px]:items-start">
           <div>
-            <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Nuevo registro</h2>
+            <h2 class="font-heading text-2xl leading-[1.1] text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Nuevo registro</h2>
           </div>
         </div>
 
@@ -32,7 +32,7 @@ export function renderRegisterPage({ product, productCampaign, registerError, la
           { renderLastValidationCard },
         )}
 
-        <form id="registerForm" class="mt-6 grid gap-4">
+        <form id="registerForm" class="mt-5 grid gap-[1.125rem]">
           ${renderField("name", "Nombre")}
           ${renderField("last_name", "Apellidos")}
           ${renderField("email", "Email", "email")}

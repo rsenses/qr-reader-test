@@ -10,7 +10,7 @@ const INLINE_ALERT_CLASS =
   "rounded-[20px] border border-[color:var(--accent-soft)] bg-[color:var(--accent-faint)] px-4 py-3 text-sm font-semibold text-[color:var(--accent-strong)]";
 
 const BACK_LINK_CLASS =
-  "inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text-base)] transition-[color,transform] duration-150 hover:text-[color:var(--text-strong)] hover:-translate-x-px focus-visible:text-[color:var(--text-strong)] focus-visible:-translate-x-px";
+  "inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--text-base)] transition-[color,transform] duration-150 active:-translate-x-px active:text-[color:var(--text-strong)] focus-visible:text-[color:var(--text-strong)] focus-visible:-translate-x-px";
 
 const DETAIL_LIST_CLASS = "mt-4 grid gap-2 text-[0.93rem] text-[color:var(--text-base)]";
 
@@ -56,7 +56,7 @@ const BADGE_TONE_CLASS = {
 export const simpleCardClass =
   "rounded-[22px] border border-[color:var(--control-border)] bg-[color:var(--control-bg)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)] transition-[border-color,transform,box-shadow,background-color] duration-150";
 
-export const interactiveCardClass = `${simpleCardClass} hover:border-[color:var(--border-strong)] hover:shadow-[var(--shadow-soft)] focus-visible:border-[color:var(--border-strong)] focus-visible:shadow-[var(--shadow-soft)]`;
+export const interactiveCardClass = `${simpleCardClass} active:border-[color:var(--border-strong)] active:shadow-[var(--shadow-soft)] focus-visible:border-[color:var(--border-strong)] focus-visible:shadow-[var(--shadow-soft)]`;
 
 export const metricCardBaseClass = "rounded-[22px] p-4 shadow-[var(--shadow-soft)]";
 

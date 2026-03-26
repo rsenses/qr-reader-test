@@ -22,9 +22,9 @@ export function renderProductStatsPage({ product, productCampaign }) {
       ${renderProductSectionHeader({ product, productCampaign })}
 
       <article class="app-card rounded-[28px] p-4 sm:p-5">
-        <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Estadisticas</h2>
+        <h2 class="font-heading text-2xl leading-[1.1] text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Estadisticas</h2>
 
-        <div class="mt-4 grid grid-cols-2 gap-3 max-[390px]:grid-cols-1">
+        <div class="mt-5 grid grid-cols-2 gap-3.5 max-[390px]:grid-cols-1">
           <div class="${metricCardBaseClass} bg-[color:var(--surface-soft)]">
             <p class="${metricCardLabelClass} text-[color:var(--text-muted)]">Inscritos</p>
             <p class="mt-2 text-3xl font-bold text-slate-900 max-[390px]:text-[2rem] max-[390px]:leading-none">${stats.totalPaidOrVerified}</p>
@@ -35,7 +35,7 @@ export function renderProductStatsPage({ product, productCampaign }) {
           </div>
         </div>
 
-        <div class="mt-4 space-y-3">
+        <div class="mt-5 space-y-3.5">
           ${
             stats.byType.length
               ? stats.byType

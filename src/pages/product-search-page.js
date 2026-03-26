@@ -97,18 +97,18 @@ export function renderProductSearchPage({
       ${renderProductSectionHeader({ product, productCampaign })}
 
       <article class="app-card rounded-[28px] p-4 sm:p-5">
-        <h2 class="font-heading text-2xl text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Buscar inscritos</h2>
+        <h2 class="font-heading text-2xl leading-[1.1] text-slate-900 max-[390px]:text-[1.55rem] max-[390px]:leading-[1.1] max-[360px]:text-[1.4rem]">Buscar inscritos</h2>
 
-        <div class="ui-input-shell mt-4 flex items-center gap-2 px-3 py-2">
+        <div class="ui-input-shell mt-5 flex items-center gap-2 px-3 py-2.5">
           <input id="manualSearchInput" value="${escapeAttribute(searchQuery)}" placeholder="Nombre, email o empresa" class="ui-input ui-input--bare min-w-0 flex-1 px-1 py-2" />
           <button type="button" data-action="clear-search" aria-label="Limpiar busqueda" class="ui-icon-button ${searchQuery ? "" : "invisible"}">${renderIcon("close")}</button>
         </div>
 
-        <div id="manualSearchResults" class="mt-4 space-y-3">
+        <div id="manualSearchResults" class="mt-5 space-y-3.5">
           ${renderSearchResults({ searchQuery, searchResults, hasEnoughChars })}
         </div>
 
-        <div id="searchValidationRegion" class="mt-4">${renderSearchValidationCard(searchValidation)}</div>
+        <div id="searchValidationRegion" class="mt-5">${renderSearchValidationCard(searchValidation)}</div>
 
       </article>
     </section>

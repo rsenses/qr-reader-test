@@ -32,7 +32,7 @@ export function renderProductDetailPage({ product, productCampaign, lastValidati
       ${renderProductSectionHeader({ product, productCampaign })}
 
       <article class="app-card rounded-[28px] p-3 sm:p-4">
-          <div class="space-y-3">
+          <div class="space-y-4">
              <div class="reader-shell relative overflow-hidden rounded-[28px] bg-black shadow-[0_12px_30px_rgba(15,23,42,0.18)]">
               <div class="scanner-controls" aria-label="Controles de camara">
                 <button id="torchBtn" type="button" hidden class="scanner-control scanner-control--primary" aria-label="Linterna">${renderIcon("flash")}</button>
